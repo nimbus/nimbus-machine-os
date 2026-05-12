@@ -3,15 +3,15 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: build.sh --neovex-binary <path> [options]
+Usage: build.sh --nimbus-binary <path> [options]
 
-Build the Neovex Fedora CoreOS guest image recipe on Linux.
+Build the Nimbus Fedora CoreOS guest image recipe on Linux.
 
 Options:
-  --neovex-binary <path>                 Linux neovex binary to install into the guest
-  --neovex-version <tag>                 Embedded neovex version tag recorded in summary output
+  --nimbus-binary <path>                 Linux nimbus binary to install into the guest
+  --nimbus-version <tag>                 Embedded nimbus version tag recorded in summary output
   --output-dir <path>                   Output directory (default: ./out)
-  --image-name <reference>              Local OCI tag (default: localhost/neovex-machine-os:dev)
+  --image-name <reference>              Local OCI tag (default: localhost/nimbus-machine-os:dev)
   --fcos-base-image <reference>         Fedora CoreOS base image
   --context-dir <path>                  Reuse a specific staging context instead of mktemp
   --help                                Show this help
@@ -19,8 +19,8 @@ EOF
 }
 
 require_linux_root() {
-  local os_name="${NEOVEX_MACHINE_OS_BUILD_TEST_UNAME:-$(uname -s)}"
-  local uid_value="${NEOVEX_MACHINE_OS_BUILD_TEST_UID:-$(id -u)}"
+  local os_name="${NIMBUS_MACHINE_OS_BUILD_TEST_UNAME:-$(uname -s)}"
+  local uid_value="${NIMBUS_MACHINE_OS_BUILD_TEST_UID:-$(id -u)}"
   if [[ "${os_name}" != "Linux" ]]; then
     echo "build.sh must run on Linux" >&2
     exit 1
@@ -53,21 +53,21 @@ sha256_hex() {
   exit 1
 }
 
-neovex_binary=""
-neovex_version=""
+nimbus_binary=""
+nimbus_version=""
 output_dir=""
-image_name="localhost/neovex-machine-os:dev"
+image_name="localhost/nimbus-machine-os:dev"
 fcos_base_image="quay.io/fedora/fedora-bootc:42"
 context_dir=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --neovex-binary)
-      neovex_binary="${2:?missing neovex binary path}"
+    --nimbus-binary)
+      nimbus_binary="${2:?missing nimbus binary path}"
       shift 2
       ;;
-    --neovex-version)
-      neovex_version="${2:?missing neovex version}"
+    --nimbus-version)
+      nimbus_version="${2:?missing nimbus version}"
       shift 2
       ;;
     --output-dir)
@@ -101,13 +101,13 @@ done
 require_linux_root
 require_command podman
 
-if [[ -z "${neovex_binary}" ]]; then
-  echo "--neovex-binary is required" >&2
+if [[ -z "${nimbus_binary}" ]]; then
+  echo "--nimbus-binary is required" >&2
   usage >&2
   exit 1
 fi
-if [[ ! -f "${neovex_binary}" ]]; then
-  echo "neovex binary does not exist at ${neovex_binary}" >&2
+if [[ ! -f "${nimbus_binary}" ]]; then
+  echo "nimbus binary does not exist at ${nimbus_binary}" >&2
   exit 1
 fi
 
@@ -127,7 +127,7 @@ fi
 
 install -m 0644 "${script_dir}/Containerfile" "${context_dir}/Containerfile"
 install -m 0755 "${script_dir}/build-common.sh" "${context_dir}/build-common.sh"
-install -m 0755 "${neovex_binary}" "${context_dir}/neovex"
+install -m 0755 "${nimbus_binary}" "${context_dir}/nimbus"
 
 podman build \
   -t "${image_name}" \
@@ -135,11 +135,11 @@ podman build \
   "${context_dir}" \
   --build-arg "FCOS_BASE_IMAGE=${fcos_base_image}"
 
-oci_archive_path="${output_dir}/neovex-machine-os.ociarchive"
+oci_archive_path="${output_dir}/nimbus-machine-os.ociarchive"
 
 podman save --format oci-archive -o "${oci_archive_path}" "${image_name}"
 
-bib_image="${NEOVEX_BIB_IMAGE:-quay.io/centos-bootc/bootc-image-builder:latest}"
+bib_image="${NIMBUS_BIB_IMAGE:-quay.io/centos-bootc/bootc-image-builder:latest}"
 bib_output_dir="$(mktemp -d)"
 
 podman run --rm --privileged \
@@ -162,13 +162,13 @@ if [[ -z "${raw_disk_path}" || ! -f "${raw_disk_path}" ]]; then
 fi
 
 require_command gzip
-compressed_raw_disk_path="${output_dir}/neovex-machine-os.raw.gz"
+compressed_raw_disk_path="${output_dir}/nimbus-machine-os.raw.gz"
 gzip -c "${raw_disk_path}" >"${compressed_raw_disk_path}"
 raw_disk_sha256="$(sha256_hex "${raw_disk_path}")"
 compressed_raw_disk_sha256="$(sha256_hex "${compressed_raw_disk_path}")"
 rm -rf "${bib_output_dir}"
 
-neovex_binary_sha256="$(sha256_hex "${neovex_binary}")"
+nimbus_binary_sha256="$(sha256_hex "${nimbus_binary}")"
 containerfile_sha256="$(sha256_hex "${script_dir}/Containerfile")"
 build_common_sha256="$(sha256_hex "${script_dir}/build-common.sh")"
 oci_archive_sha256="$(sha256_hex "${oci_archive_path}")"
@@ -176,9 +176,9 @@ oci_archive_sha256="$(sha256_hex "${oci_archive_path}")"
 cat >"${output_dir}/summary.txt" <<EOF
 image_name=${image_name}
 fcos_base_image=${fcos_base_image}
-neovex_binary=${neovex_binary}
-neovex_version=${neovex_version:-<unspecified>}
-neovex_binary_sha256=${neovex_binary_sha256}
+nimbus_binary=${nimbus_binary}
+nimbus_version=${nimbus_version:-<unspecified>}
+nimbus_binary_sha256=${nimbus_binary_sha256}
 containerfile_sha256=${containerfile_sha256}
 build_common_sha256=${build_common_sha256}
 oci_archive_path=${oci_archive_path}

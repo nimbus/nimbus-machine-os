@@ -3,14 +3,14 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-usage: build.sh --neovex-binary <path> [options]
+usage: build.sh --nimbus-binary <path> [options]
 
-Build the neovex-machine-os guest image on a Linux host using the checked-in
-image recipe and a pre-built Linux neovex binary.
+Build the nimbus-machine-os guest image on a Linux host using the checked-in
+image recipe and a pre-built Linux nimbus binary.
 
 Options:
-  --neovex-binary <path>              Linux neovex binary to install into the guest (required)
-  --neovex-version <tag>              Embedded neovex version tag recorded in the build summary
+  --nimbus-binary <path>              Linux nimbus binary to install into the guest (required)
+  --nimbus-version <tag>              Embedded nimbus version tag recorded in the build summary
   --output-dir <path>                 Output directory passed through to the image recipe
   --image-name <reference>            OCI tag passed through to the image recipe
   --fcos-base-image <reference>       Base image passed through to the image recipe
@@ -19,8 +19,8 @@ Options:
 
 Examples:
   sudo bash scripts/build.sh \
-    --neovex-binary /path/to/neovex-linux-aarch64 \
-    --output-dir /tmp/neovex-machine-os
+    --nimbus-binary /path/to/nimbus-linux-aarch64 \
+    --output-dir /tmp/nimbus-machine-os
 EOF
 }
 
@@ -32,8 +32,8 @@ require_command() {
   fi
 }
 
-neovex_binary=""
-neovex_version=""
+nimbus_binary=""
+nimbus_version=""
 output_dir=""
 image_name=""
 fcos_base_image=""
@@ -41,12 +41,12 @@ context_dir=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --neovex-binary)
-      neovex_binary="${2:-}"
+    --nimbus-binary)
+      nimbus_binary="${2:-}"
       shift 2
       ;;
-    --neovex-version)
-      neovex_version="${2:-}"
+    --nimbus-version)
+      nimbus_version="${2:-}"
       shift 2
       ;;
     --output-dir)
@@ -77,14 +77,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-os_name="${NEOVEX_MACHINE_OS_BUILD_WRAPPER_TEST_UNAME:-$(uname -s)}"
+os_name="${NIMBUS_MACHINE_OS_BUILD_WRAPPER_TEST_UNAME:-$(uname -s)}"
 if [[ "${os_name}" != "Linux" ]]; then
   echo "build.sh requires a Linux host" >&2
   exit 69
 fi
 
-if [[ -z "${neovex_binary}" ]]; then
-  echo "--neovex-binary is required" >&2
+if [[ -z "${nimbus_binary}" ]]; then
+  echo "--nimbus-binary is required" >&2
   usage >&2
   exit 64
 fi
@@ -99,20 +99,20 @@ if [[ ! -f "${recipe_script}" ]]; then
   exit 66
 fi
 
-if [[ ! -f "${neovex_binary}" ]]; then
-  echo "neovex binary not found: ${neovex_binary}" >&2
+if [[ ! -f "${nimbus_binary}" ]]; then
+  echo "nimbus binary not found: ${nimbus_binary}" >&2
   exit 66
 fi
 
-echo "build.neovex_binary=${neovex_binary}"
+echo "build.nimbus_binary=${nimbus_binary}"
 echo "build.recipe=${recipe_script}"
 
-args=(--neovex-binary "${neovex_binary}")
+args=(--nimbus-binary "${nimbus_binary}")
 if [[ -n "${output_dir}" ]]; then
   args+=(--output-dir "${output_dir}")
 fi
-if [[ -n "${neovex_version}" ]]; then
-  args+=(--neovex-version "${neovex_version}")
+if [[ -n "${nimbus_version}" ]]; then
+  args+=(--nimbus-version "${nimbus_version}")
 fi
 if [[ -n "${image_name}" ]]; then
   args+=(--image-name "${image_name}")

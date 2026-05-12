@@ -1,6 +1,6 @@
-# Neovex Machine OS Recipe
+# Nimbus Machine OS Recipe
 
-This directory owns the checked-in Linux guest-image recipe for the Neovex
+This directory owns the checked-in Linux guest-image recipe for the Nimbus
 macOS machine.
 
 It is intentionally Podman-shaped:
@@ -9,7 +9,7 @@ It is intentionally Podman-shaped:
 - build flow: `podman build` -> `podman save` -> `bootc-image-builder --type raw`
 - guest workload model: standard Linux containers via `crun`, not nested
   guest-side microVMs
-- first-boot bootstrap: Ignition plus the Neovex guest systemd units injected
+- first-boot bootstrap: Ignition plus the Nimbus guest systemd units injected
   by the host manager
 - host file sharing: virtiofs
 
@@ -20,14 +20,14 @@ it does not build the guest image locally during normal development.
 
 `images/build.sh` produces:
 
-- `neovex-machine-os.ociarchive`
-- `neovex-machine-os.raw.gz`
+- `nimbus-machine-os.ociarchive`
+- `nimbus-machine-os.raw.gz`
 - `summary.txt`
 
 The summary records:
 
-- the staged `neovex` binary path and sha256
-- the optional embedded `neovex_version` tag
+- the staged `nimbus` binary path and sha256
+- the optional embedded `nimbus_version` tag
 - the recipe file sha256 values
 - the OCI archive and raw-disk artifact sha256 values
 
@@ -40,22 +40,22 @@ Preferred wrapper:
 
 ```bash
 sudo bash scripts/build.sh \
-  --neovex-binary /absolute/path/to/neovex-linux-arm64 \
-  --neovex-version vX.Y.Z \
-  --output-dir /tmp/neovex-machine-os
+  --nimbus-binary /absolute/path/to/nimbus-linux-arm64 \
+  --nimbus-version vX.Y.Z \
+  --output-dir /tmp/nimbus-machine-os
 ```
 
 Direct recipe entrypoint:
 
 ```bash
 sudo bash images/build.sh \
-  --neovex-binary /absolute/path/to/neovex-linux-arm64 \
-  --neovex-version vX.Y.Z \
-  --output-dir /tmp/neovex-machine-os
+  --nimbus-binary /absolute/path/to/nimbus-linux-arm64 \
+  --nimbus-version vX.Y.Z \
+  --output-dir /tmp/nimbus-machine-os
 ```
 
-`--neovex-version` is optional for local builds, but CI and release lanes
-should pass it so downstream OCI metadata can declare exactly which Neovex
+`--nimbus-version` is optional for local builds, but CI and release lanes
+should pass it so downstream OCI metadata can declare exactly which Nimbus
 release the image embeds.
 
 ## Package And Publish
@@ -64,26 +64,26 @@ Package the raw disk into the OCI layout expected by the host manager:
 
 ```bash
 bash scripts/package-oci.sh \
-  --build-output-dir /tmp/neovex-machine-os \
-  --image-reference docker://ghcr.io/agentstation/neovex-machine-os:vX.Y.Z \
-  --layout-dir /tmp/neovex-machine-os/oci-layout
+  --build-output-dir /tmp/nimbus-machine-os \
+  --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:vX.Y.Z \
+  --layout-dir /tmp/nimbus-machine-os/oci-layout
 ```
 
 Publish the packaged layout:
 
 ```bash
 bash scripts/publish.sh \
-  --layout-dir /tmp/neovex-machine-os/oci-layout \
-  --image-reference docker://ghcr.io/agentstation/neovex-machine-os:vX.Y.Z \
-  --additional-reference docker://ghcr.io/agentstation/neovex-machine-os:stable \
-  --release-dir /tmp/neovex-machine-os/release
+  --layout-dir /tmp/nimbus-machine-os/oci-layout \
+  --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:vX.Y.Z \
+  --additional-reference docker://ghcr.io/nimbus/nimbus-machine-os:stable \
+  --release-dir /tmp/nimbus-machine-os/release
 ```
 
 The packaged OCI artifact carries:
 
 - `org.opencontainers.image.source`
-- `io.neovex.machine.attestation.repository`
-- `io.neovex.machine.neovex.version`
+- `io.nimbus.machine.attestation.repository`
+- `io.nimbus.machine.nimbus.version`
 
 That keeps the host-side attestation and version checks machine-readable
 instead of inferred from repo naming alone.
@@ -96,11 +96,11 @@ The owning workflow is:
 
 Release shape:
 
-- `agentstation/neovex` `v*` releases call this workflow via `workflow_call`
-  and pass the same tag as `neovex_version`
-- standalone `agentstation/neovex-machine-os` `v*` tags must embed the same
-  Neovex version they publish
-- non-release validation runs may float to Neovex's latest published release,
+- `nimbus/nimbus` `v*` releases call this workflow via `workflow_call`
+  and pass the same tag as `nimbus_version`
+- standalone `nimbus/nimbus-machine-os` `v*` tags must embed the same
+  Nimbus version they publish
+- non-release validation runs may float to Nimbus's latest published release,
   but they do not publish immutable artifacts
 
 ## Verification

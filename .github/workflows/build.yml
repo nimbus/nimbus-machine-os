@@ -23,8 +23,8 @@ on:
       - ".github/workflows/build.yml"
   workflow_dispatch:
     inputs:
-      neovex_version:
-        description: "Neovex release tag to download (e.g. vX.Y.Z)"
+      nimbus_version:
+        description: "Nimbus release tag to download (e.g. vX.Y.Z)"
         required: true
         type: string
       release_tag:
@@ -32,8 +32,8 @@ on:
         required: false
         default: ""
         type: string
-      neovex_artifact_name:
-        description: "Optional neovex workflow artifact name to consume from the current run"
+      nimbus_artifact_name:
+        description: "Optional nimbus workflow artifact name to consume from the current run"
         required: false
         default: ""
         type: string
@@ -50,7 +50,7 @@ on:
       image_reference:
         description: "Immutable destination image reference for the packaged machine artifact"
         required: true
-        default: "docker://ghcr.io/agentstation/neovex-machine-os:v0.0.0-dev"
+        default: "docker://ghcr.io/nimbus/nimbus-machine-os:v0.0.0-dev"
         type: string
       stage_artifact_name:
         description: "Optional artifact name used to stage the built machine bundle for a later publish/release lane"
@@ -64,8 +64,8 @@ on:
         type: string
   workflow_call:
     inputs:
-      neovex_version:
-        description: "Neovex release tag to download (e.g. vX.Y.Z)"
+      nimbus_version:
+        description: "Nimbus release tag to download (e.g. vX.Y.Z)"
         required: true
         type: string
       release_tag:
@@ -73,8 +73,8 @@ on:
         required: false
         default: ""
         type: string
-      neovex_artifact_name:
-        description: "Optional neovex workflow artifact name to consume from the caller run"
+      nimbus_artifact_name:
+        description: "Optional nimbus workflow artifact name to consume from the caller run"
         required: false
         default: ""
         type: string
@@ -106,7 +106,7 @@ on:
         required: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.neovex_version || github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.nimbus_version || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -125,7 +125,7 @@ jobs:
       - name: Check out machine-os repository
         uses: actions/checkout@v6
         with:
-          repository: agentstation/neovex-machine-os
+          repository: nimbus/nimbus-machine-os
 
       - name: Verify helper syntax and help entrypoints
         run: |
@@ -166,58 +166,58 @@ jobs:
       - name: Check out machine-os repository
         uses: actions/checkout@v6
         with:
-          repository: agentstation/neovex-machine-os
+          repository: nimbus/nimbus-machine-os
 
       - name: Initialize build directories
         run: |
           {
-            echo "BUILD_OUTPUT_DIR=${RUNNER_TEMP}/neovex-machine-os"
-            echo "LAYOUT_DIR=${RUNNER_TEMP}/neovex-machine-os-layout"
-            echo "RELEASE_DIR=${RUNNER_TEMP}/neovex-machine-os-release"
+            echo "BUILD_OUTPUT_DIR=${RUNNER_TEMP}/nimbus-machine-os"
+            echo "LAYOUT_DIR=${RUNNER_TEMP}/nimbus-machine-os-layout"
+            echo "RELEASE_DIR=${RUNNER_TEMP}/nimbus-machine-os-release"
           } >> "${GITHUB_ENV}"
           mkdir -p \
-            "${RUNNER_TEMP}/neovex-machine-os" \
-            "${RUNNER_TEMP}/neovex-machine-os-layout" \
-            "${RUNNER_TEMP}/neovex-machine-os-release"
+            "${RUNNER_TEMP}/nimbus-machine-os" \
+            "${RUNNER_TEMP}/nimbus-machine-os-layout" \
+            "${RUNNER_TEMP}/nimbus-machine-os-release"
 
-      - name: Determine neovex version
-        id: neovex-version
+      - name: Determine nimbus version
+        id: nimbus-version
         run: |
-          if [[ -n "${{ inputs.neovex_version }}" ]]; then
-            echo "tag=${{ inputs.neovex_version }}" >> "${GITHUB_OUTPUT}"
+          if [[ -n "${{ inputs.nimbus_version }}" ]]; then
+            echo "tag=${{ inputs.nimbus_version }}" >> "${GITHUB_OUTPUT}"
           elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
             # Standalone machine-os release tags are expected to mirror the
-            # embedded neovex version exactly.
+            # embedded nimbus version exactly.
             echo "tag=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
           else
             # Non-release validation lanes can float to the latest published
-            # neovex release because they do not publish immutable artifacts.
-            tag="$(gh api repos/agentstation/neovex/releases/latest --jq '.tag_name')"
+            # nimbus release because they do not publish immutable artifacts.
+            tag="$(gh api repos/nimbus/nimbus/releases/latest --jq '.tag_name')"
             echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
           fi
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Download neovex binary from workflow artifact
+      - name: Download nimbus binary from workflow artifact
         id: artifact-download
-        if: inputs.neovex_artifact_name != ''
+        if: inputs.nimbus_artifact_name != ''
         uses: actions/download-artifact@v8
         with:
-          name: ${{ inputs.neovex_artifact_name }}
+          name: ${{ inputs.nimbus_artifact_name }}
           path: ${{ runner.temp }}
 
-      - name: Download neovex binary from GitHub Release
-        if: inputs.neovex_artifact_name == ''
+      - name: Download nimbus binary from GitHub Release
+        if: inputs.nimbus_artifact_name == ''
         run: |
-          tag="${{ steps.neovex-version.outputs.tag }}"
-          curl -fsSL -o "${RUNNER_TEMP}/neovex_linux_arm64.tar.gz" \
-            "https://github.com/agentstation/neovex/releases/download/${tag}/neovex_linux_arm64.tar.gz"
+          tag="${{ steps.nimbus-version.outputs.tag }}"
+          curl -fsSL -o "${RUNNER_TEMP}/nimbus_linux_arm64.tar.gz" \
+            "https://github.com/nimbus/nimbus/releases/download/${tag}/nimbus_linux_arm64.tar.gz"
 
-      - name: Extract neovex binary
+      - name: Extract nimbus binary
         run: |
-          tar xzf "${RUNNER_TEMP}/neovex_linux_arm64.tar.gz" -C "${RUNNER_TEMP}"
-          chmod +x "${RUNNER_TEMP}/neovex"
-          echo "neovex_binary=${RUNNER_TEMP}/neovex" >> "${GITHUB_ENV}"
+          tar xzf "${RUNNER_TEMP}/nimbus_linux_arm64.tar.gz" -C "${RUNNER_TEMP}"
+          chmod +x "${RUNNER_TEMP}/nimbus"
+          echo "nimbus_binary=${RUNNER_TEMP}/nimbus" >> "${GITHUB_ENV}"
 
       - name: Verify build-host requirements
         run: |
@@ -255,7 +255,7 @@ jobs:
             image_reference="${{ inputs.image_reference }}"
           else
             tag_name="${GITHUB_REF_NAME}"
-            image_reference="docker://ghcr.io/agentstation/neovex-machine-os:${tag_name}"
+            image_reference="docker://ghcr.io/nimbus/nimbus-machine-os:${tag_name}"
           fi
 
           publish="${{ inputs.publish }}"
@@ -313,11 +313,11 @@ jobs:
           MACHINE_OS_RELEASE_APP_PRIVATE_KEY: ${{ secrets.MACHINE_OS_RELEASE_APP_PRIVATE_KEY }}
         run: |
           if [[ -z "${{ inputs.release_app_id }}" ]]; then
-            echo "release_app_id must be passed to the reusable machine-os workflow when it publishes GHCR artifacts or creates a GitHub release for agentstation/neovex-machine-os." >&2
+            echo "release_app_id must be passed to the reusable machine-os workflow when it publishes GHCR artifacts or creates a GitHub release for nimbus/nimbus-machine-os." >&2
             exit 1
           fi
           if [[ -z "${MACHINE_OS_RELEASE_APP_PRIVATE_KEY}" ]]; then
-            echo "MACHINE_OS_RELEASE_APP_PRIVATE_KEY must be passed to the reusable machine-os workflow when it publishes GHCR artifacts or creates a GitHub release for agentstation/neovex-machine-os." >&2
+            echo "MACHINE_OS_RELEASE_APP_PRIVATE_KEY must be passed to the reusable machine-os workflow when it publishes GHCR artifacts or creates a GitHub release for nimbus/nimbus-machine-os." >&2
             exit 1
           fi
 
@@ -331,8 +331,8 @@ jobs:
         with:
           app-id: ${{ inputs.release_app_id }}
           private-key: ${{ secrets.MACHINE_OS_RELEASE_APP_PRIVATE_KEY }}
-          owner: agentstation
-          repositories: neovex-machine-os
+          owner: nimbus
+          repositories: nimbus-machine-os
           permission-contents: write
           permission-packages: write
 
@@ -345,8 +345,8 @@ jobs:
       - name: Build guest image
         run: |
           sudo bash scripts/build.sh \
-            --neovex-binary "${neovex_binary}" \
-            --neovex-version "${{ steps.neovex-version.outputs.tag }}" \
+            --nimbus-binary "${nimbus_binary}" \
+            --nimbus-version "${{ steps.nimbus-version.outputs.tag }}" \
             --output-dir "${BUILD_OUTPUT_DIR}"
           sudo chown -R "$(id -u):$(id -g)" \
             "${BUILD_OUTPUT_DIR}"
@@ -366,19 +366,19 @@ jobs:
             --image-reference "${{ steps.release-policy.outputs.image_reference }}" \
             --layout-dir "${LAYOUT_DIR}" \
             --arch arm64 \
-            --source-repository-url "https://github.com/agentstation/neovex-machine-os" \
+            --source-repository-url "https://github.com/nimbus/nimbus-machine-os" \
             --attestation-repository "${{ github.repository }}" \
-            --neovex-version "${{ steps.neovex-version.outputs.tag }}"
+            --nimbus-version "${{ steps.nimbus-version.outputs.tag }}"
 
       - name: Stage reusable machine-os bundle
         if: inputs.stage_artifact_name != ''
         run: |
-          stage_root="${RUNNER_TEMP}/neovex-machine-os-stage"
+          stage_root="${RUNNER_TEMP}/nimbus-machine-os-stage"
           rm -rf "${stage_root}"
           mkdir -p "${stage_root}/build-output" "${stage_root}/layout"
 
           cp "${BUILD_OUTPUT_DIR}/summary.txt" "${stage_root}/build-output/"
-          cp "${BUILD_OUTPUT_DIR}/neovex-machine-os.raw.gz" "${stage_root}/build-output/"
+          cp "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz" "${stage_root}/build-output/"
           cp -R "${LAYOUT_DIR}/." "${stage_root}/layout/"
 
       - name: Upload staged machine-os bundle
@@ -387,14 +387,14 @@ jobs:
         with:
           name: ${{ inputs.stage_artifact_name }}
           if-no-files-found: error
-          path: ${{ runner.temp }}/neovex-machine-os-stage/
+          path: ${{ runner.temp }}/nimbus-machine-os-stage/
           compression-level: 0
 
       - name: Publish packaged OCI artifact
         if: steps.release-policy.outputs.publish == 'true'
         env:
-          NEOVEX_MACHINE_OS_REGISTRY_USERNAME: ${{ steps.release_app_token.outputs.app-slug != '' && format('{0}[bot]', steps.release_app_token.outputs.app-slug) || github.actor }}
-          NEOVEX_MACHINE_OS_REGISTRY_PASSWORD: ${{ steps.release_app_token.outputs.token || github.token }}
+          NIMBUS_MACHINE_OS_REGISTRY_USERNAME: ${{ steps.release_app_token.outputs.app-slug != '' && format('{0}[bot]', steps.release_app_token.outputs.app-slug) || github.actor }}
+          NIMBUS_MACHINE_OS_REGISTRY_PASSWORD: ${{ steps.release_app_token.outputs.token || github.token }}
         run: |
           bash scripts/publish.sh \
             --layout-dir "${LAYOUT_DIR}" \
@@ -406,20 +406,20 @@ jobs:
         if: steps.release-metadata.outputs.create_release == 'true'
         run: |
           cat > "${RELEASE_DIR}/machine-image-reference.txt" <<EOF
-          ghcr.io/agentstation/neovex-machine-os:${{ steps.release-metadata.outputs.release_tag }}
+          ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}
           EOF
 
           cat > "${RELEASE_DIR}/release-notes.md" <<EOF
-          neovex-machine-os release ${{ steps.release-metadata.outputs.release_tag }}
+          nimbus-machine-os release ${{ steps.release-metadata.outputs.release_tag }}
 
           OCI image:
-          - \`ghcr.io/agentstation/neovex-machine-os:${{ steps.release-metadata.outputs.release_tag }}\`
+          - \`ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}\`
 
-          Source neovex release:
-          - \`https://github.com/agentstation/neovex/releases/tag/${{ steps.neovex-version.outputs.tag }}\`
+          Source nimbus release:
+          - \`https://github.com/nimbus/nimbus/releases/tag/${{ steps.nimbus-version.outputs.tag }}\`
 
           Included assets:
-          - \`neovex-machine-os.raw.gz\`
+          - \`nimbus-machine-os.raw.gz\`
           - \`checksums.txt\`
           - \`publish-summary.txt\`
           - \`machine-image-reference.txt\`
@@ -431,10 +431,10 @@ jobs:
           GH_TOKEN: ${{ steps.release_app_token.outputs.token || github.token }}
         run: |
           release_tag="${{ steps.release-metadata.outputs.release_tag }}"
-          release_repository="agentstation/neovex-machine-os"
+          release_repository="nimbus/nimbus-machine-os"
           release_target_sha="$(git rev-parse HEAD)"
           assets=(
-            "${BUILD_OUTPUT_DIR}/neovex-machine-os.raw.gz"
+            "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz"
             "${RELEASE_DIR}/checksums.txt"
             "${RELEASE_DIR}/publish-summary.txt"
             "${RELEASE_DIR}/machine-image-reference.txt"
@@ -460,19 +460,19 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: |
-            ${{ env.BUILD_OUTPUT_DIR }}/neovex-machine-os.ociarchive
-            ${{ env.BUILD_OUTPUT_DIR }}/neovex-machine-os.raw.gz
+            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.ociarchive
+            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.raw.gz
             ${{ env.RELEASE_DIR }}/checksums.txt
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: neovex-machine-os-arm64
+          name: nimbus-machine-os-arm64
           if-no-files-found: error
           path: |
             ${{ env.BUILD_OUTPUT_DIR }}/summary.txt
-            ${{ env.BUILD_OUTPUT_DIR }}/neovex-machine-os.ociarchive
-            ${{ env.BUILD_OUTPUT_DIR }}/neovex-machine-os.raw.gz
+            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.ociarchive
+            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.raw.gz
             ${{ env.LAYOUT_DIR }}/summary.txt
             ${{ env.LAYOUT_DIR }}/index.json
           compression-level: 0
@@ -481,7 +481,7 @@ jobs:
         if: steps.release-policy.outputs.publish == 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: neovex-machine-os-arm64-publish
+          name: nimbus-machine-os-arm64-publish
           if-no-files-found: error
           path: |
             ${{ env.RELEASE_DIR }}/publish-summary.txt

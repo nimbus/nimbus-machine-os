@@ -1,16 +1,16 @@
-# neovex-machine-os
+# nimbus-machine-os
 
-Guest OS image for the neovex macOS developer machine. Built on Fedora bootc
-with neovex and container tooling pre-installed.
+Guest OS image for the nimbus macOS developer machine. Built on Fedora bootc
+with nimbus and container tooling pre-installed.
 
-This is the neovex equivalent of
+This is the nimbus equivalent of
 [containers/podman-machine-os](https://github.com/containers/podman-machine-os).
 
 ## What's inside
 
 The guest image includes:
 
-- **neovex** — the neovex server binary (from `agentstation/neovex` releases)
+- **nimbus** — the nimbus server binary (from `nimbus/nimbus` releases)
 - **Container tooling** — crun, conmon, buildah, containers-common, netavark,
   aardvark-dns, fuse-overlayfs, catatonit, passt
 - **System services** — openssh-server, socat, cloud-init
@@ -22,7 +22,7 @@ raw disk image via `bootc-image-builder`.
 
 | Artifact | Location |
 |----------|----------|
-| Raw-disk OCI image | `ghcr.io/agentstation/neovex-machine-os` |
+| Raw-disk OCI image | `ghcr.io/nimbus/nimbus-machine-os` |
 | Build provenance | GitHub Attestations (via `actions/attest`) |
 
 ## Building locally
@@ -30,20 +30,20 @@ raw disk image via `bootc-image-builder`.
 Requires a Linux host with podman and root access:
 
 ```bash
-# Download a neovex binary first
-curl -fsSL -o /tmp/neovex_linux_arm64.tar.gz \
-  https://github.com/agentstation/neovex/releases/latest/download/neovex_linux_arm64.tar.gz
-tar xzf /tmp/neovex_linux_arm64.tar.gz -C /tmp
+# Download a nimbus binary first
+curl -fsSL -o /tmp/nimbus_linux_arm64.tar.gz \
+  https://github.com/nimbus/nimbus/releases/latest/download/nimbus_linux_arm64.tar.gz
+tar xzf /tmp/nimbus_linux_arm64.tar.gz -C /tmp
 
 sudo bash scripts/build.sh \
-  --neovex-binary /tmp/neovex \
-  --neovex-version vX.Y.Z \
-  --output-dir /tmp/neovex-machine-os
+  --nimbus-binary /tmp/nimbus \
+  --nimbus-version vX.Y.Z \
+  --output-dir /tmp/nimbus-machine-os
 ```
 
-`--neovex-version` is optional for ad hoc local builds, but release and CI
+`--nimbus-version` is optional for ad hoc local builds, but release and CI
 lanes should pass it so the build summary and packaged OCI metadata record the
-embedded Neovex version explicitly.
+embedded Nimbus version explicitly.
 
 ## CI
 
@@ -52,36 +52,36 @@ The GitHub Actions workflow (`.github/workflows/build.yml`) runs on
 
 1. **verify-contract** — script syntax, help entrypoints, deterministic
    helper tests
-2. **build-arm64** — downloads or receives the matching neovex Linux binary,
+2. **build-arm64** — downloads or receives the matching nimbus Linux binary,
    builds the guest image, packages it as OCI layout, publishes to GHCR on
    `v*` tags, and attests the build output
 
 Primary release path:
 
-- `agentstation/neovex` `v*` releases call `build.yml` first as the staging
+- `nimbus/nimbus` `v*` releases call `build.yml` first as the staging
   lane that verifies the machine-os repo and builds the raw-disk OCI bundle
 - that staging lane uploads a reusable machine-os artifact bundle inside the
   caller's workflow run
-- after the host `agentstation/neovex` release succeeds, the caller invokes
+- after the host `nimbus/nimbus` release succeeds, the caller invokes
   `publish.yml`, which downloads that staged bundle and publishes/releases it
   without rebuilding the machine image
 - the publish/release call must pass `release_app_id` plus the
   `MACHINE_OS_RELEASE_APP_PRIVATE_KEY` secret so the reusable workflow can
-  mint its own installation token for `agentstation/neovex-machine-os`
+  mint its own installation token for `nimbus/nimbus-machine-os`
 - the reusable workflow uses that GitHub App token for both GHCR publishing
-  and `gh release ... --repo agentstation/neovex-machine-os`; standalone
+  and `gh release ... --repo nimbus/nimbus-machine-os`; standalone
   runs in this repository continue to use the native `github.token`
-- standalone `agentstation/neovex-machine-os` `v*` tags are expected to use
-  the same `v*` tag as the embedded neovex release; the workflow resolves the
-  binary from `agentstation/neovex/releases/download/<same-tag>/...`
-- non-release validation runs may float to Neovex's latest published release,
+- standalone `nimbus/nimbus-machine-os` `v*` tags are expected to use
+  the same `v*` tag as the embedded nimbus release; the workflow resolves the
+  binary from `nimbus/nimbus/releases/download/<same-tag>/...`
+- non-release validation runs may float to Nimbus's latest published release,
   but they do not publish immutable artifacts
 
 Published OCI metadata includes:
 
-- `org.opencontainers.image.source=https://github.com/agentstation/neovex-machine-os`
-- `io.neovex.machine.attestation.repository=<repo that owns the attestation>`
-- `io.neovex.machine.neovex.version=<embedded neovex tag>`
+- `org.opencontainers.image.source=https://github.com/nimbus/nimbus-machine-os`
+- `io.nimbus.machine.attestation.repository=<repo that owns the attestation>`
+- `io.nimbus.machine.nimbus.version=<embedded nimbus tag>`
 
 Triggered by pushes to main (path-filtered), `v*` tags, `workflow_call`, and
 `workflow_dispatch`.

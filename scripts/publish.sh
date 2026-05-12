@@ -5,7 +5,7 @@ usage() {
   cat <<'EOF'
 usage: publish.sh [options]
 
-Push a packaged Neovex machine raw-disk OCI layout to a registry and stage a
+Push a packaged Nimbus machine raw-disk OCI layout to a registry and stage a
 release bundle if requested.
 
 Options:
@@ -19,15 +19,15 @@ Options:
   -h, --help                       Show this help
 
 Environment:
-  NEOVEX_MACHINE_OS_REGISTRY_USERNAME  Optional registry username
-  NEOVEX_MACHINE_OS_REGISTRY_PASSWORD  Optional registry password
+  NIMBUS_MACHINE_OS_REGISTRY_USERNAME  Optional registry username
+  NIMBUS_MACHINE_OS_REGISTRY_PASSWORD  Optional registry password
 
 Example:
   bash scripts/publish.sh \
-    --layout-dir /tmp/neovex-machine-os/oci-layout \
-    --image-reference docker://ghcr.io/agentstation/neovex-machine-os:vX.Y.Z \
-    --additional-reference docker://ghcr.io/agentstation/neovex-machine-os:stable \
-    --release-dir /tmp/neovex-machine-os/release
+    --layout-dir /tmp/nimbus-machine-os/oci-layout \
+    --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:vX.Y.Z \
+    --additional-reference docker://ghcr.io/nimbus/nimbus-machine-os:stable \
+    --release-dir /tmp/nimbus-machine-os/release
 EOF
 }
 
@@ -129,12 +129,12 @@ if [[ -z "${layout_ref_name}" ]]; then
 fi
 
 copy_args=(copy --all --retry-times 3)
-if [[ -n "${NEOVEX_MACHINE_OS_REGISTRY_USERNAME:-}" || -n "${NEOVEX_MACHINE_OS_REGISTRY_PASSWORD:-}" ]]; then
-  if [[ -z "${NEOVEX_MACHINE_OS_REGISTRY_USERNAME:-}" || -z "${NEOVEX_MACHINE_OS_REGISTRY_PASSWORD:-}" ]]; then
-    echo "both NEOVEX_MACHINE_OS_REGISTRY_USERNAME and NEOVEX_MACHINE_OS_REGISTRY_PASSWORD are required together" >&2
+if [[ -n "${NIMBUS_MACHINE_OS_REGISTRY_USERNAME:-}" || -n "${NIMBUS_MACHINE_OS_REGISTRY_PASSWORD:-}" ]]; then
+  if [[ -z "${NIMBUS_MACHINE_OS_REGISTRY_USERNAME:-}" || -z "${NIMBUS_MACHINE_OS_REGISTRY_PASSWORD:-}" ]]; then
+    echo "both NIMBUS_MACHINE_OS_REGISTRY_USERNAME and NIMBUS_MACHINE_OS_REGISTRY_PASSWORD are required together" >&2
     exit 64
   fi
-  copy_args+=(--dest-creds "${NEOVEX_MACHINE_OS_REGISTRY_USERNAME}:${NEOVEX_MACHINE_OS_REGISTRY_PASSWORD}")
+  copy_args+=(--dest-creds "${NIMBUS_MACHINE_OS_REGISTRY_USERNAME}:${NIMBUS_MACHINE_OS_REGISTRY_PASSWORD}")
 fi
 
 source_ref="oci:${layout_dir}:${layout_ref_name}"

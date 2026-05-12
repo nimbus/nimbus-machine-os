@@ -1,7 +1,7 @@
 name: Publish machine-os staged bundle
 run-name: >-
   Publish machine-os${{
-    format(' ({0})', inputs.release_tag != '' && inputs.release_tag || inputs.neovex_version)
+    format(' ({0})', inputs.release_tag != '' && inputs.release_tag || inputs.nimbus_version)
   }}${{
     format(' from {0}#{1}', inputs.source_repository, inputs.source_run_id)
   }}${{
@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       source_repository:
-        description: "Repository that owns the staged machine-os bundle (for example agentstation/neovex)"
+        description: "Repository that owns the staged machine-os bundle (for example nimbus/nimbus)"
         required: true
         type: string
       source_run_id:
@@ -24,8 +24,8 @@ on:
         required: false
         default: ""
         type: string
-      neovex_version:
-        description: "Neovex release tag recorded in the machine-os release notes"
+      nimbus_version:
+        description: "Nimbus release tag recorded in the machine-os release notes"
         required: true
         type: string
       release_tag:
@@ -48,7 +48,7 @@ on:
         type: boolean
 
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.release_tag || inputs.neovex_version || github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.release_tag || inputs.nimbus_version || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -72,19 +72,19 @@ jobs:
       - name: Check out machine-os repository
         uses: actions/checkout@v6
         with:
-          repository: agentstation/neovex-machine-os
+          repository: nimbus/nimbus-machine-os
 
       - name: Initialize publish directories
         run: |
           {
-            echo "BUILD_OUTPUT_DIR=${RUNNER_TEMP}/neovex-machine-os"
-            echo "LAYOUT_DIR=${RUNNER_TEMP}/neovex-machine-os-layout"
-            echo "RELEASE_DIR=${RUNNER_TEMP}/neovex-machine-os-release"
+            echo "BUILD_OUTPUT_DIR=${RUNNER_TEMP}/nimbus-machine-os"
+            echo "LAYOUT_DIR=${RUNNER_TEMP}/nimbus-machine-os-layout"
+            echo "RELEASE_DIR=${RUNNER_TEMP}/nimbus-machine-os-release"
           } >> "${GITHUB_ENV}"
           mkdir -p \
-            "${RUNNER_TEMP}/neovex-machine-os" \
-            "${RUNNER_TEMP}/neovex-machine-os-layout" \
-            "${RUNNER_TEMP}/neovex-machine-os-release"
+            "${RUNNER_TEMP}/nimbus-machine-os" \
+            "${RUNNER_TEMP}/nimbus-machine-os-layout" \
+            "${RUNNER_TEMP}/nimbus-machine-os-release"
 
       - name: Resolve source repository coordinates
         id: source-repo
@@ -109,7 +109,7 @@ jobs:
         run: |
           release_tag='${{ inputs.release_tag }}'
           if [[ -z "${release_tag}" ]]; then
-            release_tag='${{ inputs.neovex_version }}'
+            release_tag='${{ inputs.nimbus_version }}'
           fi
 
           create_release='${{ inputs.create_release }}'
@@ -128,11 +128,11 @@ jobs:
           MACHINE_OS_RELEASE_APP_PRIVATE_KEY: ${{ secrets.MACHINE_OS_RELEASE_APP_PRIVATE_KEY }}
         run: |
           if [[ -z "${MACHINE_OS_RELEASE_APP_ID}" ]]; then
-            echo "MACHINE_OS_RELEASE_APP_ID must be configured in neovex-machine-os so this workflow can mint a source-repo artifact token." >&2
+            echo "MACHINE_OS_RELEASE_APP_ID must be configured in nimbus-machine-os so this workflow can mint a source-repo artifact token." >&2
             exit 1
           fi
           if [[ -z "${MACHINE_OS_RELEASE_APP_PRIVATE_KEY}" ]]; then
-            echo "MACHINE_OS_RELEASE_APP_PRIVATE_KEY must be configured in neovex-machine-os so this workflow can mint a source-repo artifact token." >&2
+            echo "MACHINE_OS_RELEASE_APP_PRIVATE_KEY must be configured in nimbus-machine-os so this workflow can mint a source-repo artifact token." >&2
             exit 1
           fi
 
@@ -164,15 +164,15 @@ jobs:
       - name: Verify staged bundle contents
         run: |
           test -f "${BUILD_OUTPUT_DIR}/summary.txt"
-          test -f "${BUILD_OUTPUT_DIR}/neovex-machine-os.raw.gz"
+          test -f "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz"
           test -f "${LAYOUT_DIR}/summary.txt"
           test -f "${LAYOUT_DIR}/index.json"
           test -d "${LAYOUT_DIR}/blobs/sha256"
 
       - name: Publish packaged OCI artifact
         env:
-          NEOVEX_MACHINE_OS_REGISTRY_USERNAME: ${{ github.actor }}
-          NEOVEX_MACHINE_OS_REGISTRY_PASSWORD: ${{ github.token }}
+          NIMBUS_MACHINE_OS_REGISTRY_USERNAME: ${{ github.actor }}
+          NIMBUS_MACHINE_OS_REGISTRY_PASSWORD: ${{ github.token }}
         run: |
           bash scripts/publish.sh \
             --layout-dir "${LAYOUT_DIR}" \
@@ -184,23 +184,23 @@ jobs:
         if: steps.release-metadata.outputs.create_release == 'true'
         run: |
           cat > "${RELEASE_DIR}/machine-image-reference.txt" <<EOF_RELEASE_REF
-          ghcr.io/agentstation/neovex-machine-os:${{ steps.release-metadata.outputs.release_tag }}
+          ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}
           EOF_RELEASE_REF
 
           cat > "${RELEASE_DIR}/release-notes.md" <<EOF_RELEASE_NOTES
-          neovex-machine-os release ${{ steps.release-metadata.outputs.release_tag }}
+          nimbus-machine-os release ${{ steps.release-metadata.outputs.release_tag }}
 
           OCI image:
-          - \`ghcr.io/agentstation/neovex-machine-os:${{ steps.release-metadata.outputs.release_tag }}\`
+          - \`ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}\`
 
-          Source neovex release:
-          - \`https://github.com/${{ steps.source-repo.outputs.repository }}/releases/tag/${{ inputs.neovex_version }}\`
+          Source nimbus release:
+          - \`https://github.com/${{ steps.source-repo.outputs.repository }}/releases/tag/${{ inputs.nimbus_version }}\`
 
           Source workflow run:
           - \`https://github.com/${{ steps.source-repo.outputs.repository }}/actions/runs/${{ inputs.source_run_id }}\`
 
           Included assets:
-          - \`neovex-machine-os.raw.gz\`
+          - \`nimbus-machine-os.raw.gz\`
           - \`checksums.txt\`
           - \`publish-summary.txt\`
           - \`machine-image-reference.txt\`
@@ -212,10 +212,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           release_tag='${{ steps.release-metadata.outputs.release_tag }}'
-          release_repository='agentstation/neovex-machine-os'
+          release_repository='nimbus/nimbus-machine-os'
           release_target_sha="$(git rev-parse HEAD)"
           assets=(
-            "${BUILD_OUTPUT_DIR}/neovex-machine-os.raw.gz"
+            "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz"
             "${RELEASE_DIR}/checksums.txt"
             "${RELEASE_DIR}/publish-summary.txt"
             "${RELEASE_DIR}/machine-image-reference.txt"
@@ -240,13 +240,13 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: |
-            ${{ env.BUILD_OUTPUT_DIR }}/neovex-machine-os.raw.gz
+            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.raw.gz
             ${{ env.RELEASE_DIR }}/checksums.txt
 
       - name: Upload publish bundle
         uses: actions/upload-artifact@v7
         with:
-          name: neovex-machine-os-arm64-publish
+          name: nimbus-machine-os-arm64-publish
           if-no-files-found: error
           path: |
             ${{ env.RELEASE_DIR }}/publish-summary.txt

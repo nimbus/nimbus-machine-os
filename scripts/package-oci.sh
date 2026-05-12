@@ -5,7 +5,7 @@ usage() {
   cat <<'EOF'
 usage: package-oci.sh [options]
 
-Wrap a Neovex machine raw-disk artifact in the OCI image-layout shape that the
+Wrap a Nimbus machine raw-disk artifact in the OCI image-layout shape that the
 macOS machine manager already consumes from registries.
 
 Options:
@@ -19,14 +19,14 @@ Options:
   --os <os>                    OCI operating system (default: linux)
   --source-repository-url <u>  OCI source repository URL
   --attestation-repository <r> GitHub repo expected to carry build attestations
-  --neovex-version <tag>       Embedded neovex version tag (for example vX.Y.Z)
+  --nimbus-version <tag>       Embedded nimbus version tag (for example vX.Y.Z)
   -h, --help                   Show this help
 
 Examples:
   bash scripts/package-oci.sh \
-    --build-output-dir /tmp/neovex-machine-os \
-    --image-reference docker://ghcr.io/agentstation/neovex-machine-os:vX.Y.Z \
-    --layout-dir /tmp/neovex-machine-os/oci-layout
+    --build-output-dir /tmp/nimbus-machine-os \
+    --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:vX.Y.Z \
+    --layout-dir /tmp/nimbus-machine-os/oci-layout
 EOF
 }
 
@@ -54,10 +54,10 @@ normalize_arch() {
 
 infer_layer_media_type() {
   case "$1" in
-    *.raw.gz) printf 'application/vnd.neovex.machine.disk.layer.v1.raw+gzip\n' ;;
-    *.raw.zst) printf 'application/vnd.neovex.machine.disk.layer.v1.raw+zstd\n' ;;
-    *.raw) printf 'application/vnd.neovex.machine.disk.layer.v1.raw\n' ;;
-    *) printf 'application/vnd.neovex.machine.disk.layer.v1.blob\n' ;;
+    *.raw.gz) printf 'application/vnd.nimbus.machine.disk.layer.v1.raw+gzip\n' ;;
+    *.raw.zst) printf 'application/vnd.nimbus.machine.disk.layer.v1.raw+zstd\n' ;;
+    *.raw) printf 'application/vnd.nimbus.machine.disk.layer.v1.raw\n' ;;
+    *) printf 'application/vnd.nimbus.machine.disk.layer.v1.blob\n' ;;
   esac
 }
 
@@ -75,14 +75,14 @@ build_annotation_entries() {
   local ref_name="$1"
   local source_repository_url="$2"
   local attestation_repository="$3"
-  local neovex_version="$4"
+  local nimbus_version="$4"
 
-  printf '"org.opencontainers.image.ref.name":"%s","org.opencontainers.image.source":"%s","io.neovex.machine.attestation.repository":"%s"' \
+  printf '"org.opencontainers.image.ref.name":"%s","org.opencontainers.image.source":"%s","io.nimbus.machine.attestation.repository":"%s"' \
     "$(json_escape "${ref_name}")" \
     "$(json_escape "${source_repository_url}")" \
     "$(json_escape "${attestation_repository}")"
-  if [[ -n "${neovex_version}" ]]; then
-    printf ',"io.neovex.machine.neovex.version":"%s"' "$(json_escape "${neovex_version}")"
+  if [[ -n "${nimbus_version}" ]]; then
+    printf ',"io.nimbus.machine.nimbus.version":"%s"' "$(json_escape "${nimbus_version}")"
   fi
 }
 
@@ -115,11 +115,11 @@ raw_disk_path=""
 layout_dir=""
 image_reference=""
 ref_name=""
-oci_arch="$(normalize_arch "${NEOVEX_MACHINE_OS_PACKAGE_TEST_ARCH:-$(uname -m)}")"
+oci_arch="$(normalize_arch "${NIMBUS_MACHINE_OS_PACKAGE_TEST_ARCH:-$(uname -m)}")"
 oci_os="linux"
-source_repository_url="${NEOVEX_MACHINE_OS_SOURCE_REPOSITORY_URL:-https://github.com/agentstation/neovex-machine-os}"
-attestation_repository="${NEOVEX_MACHINE_OS_ATTESTATION_REPOSITORY:-agentstation/neovex-machine-os}"
-neovex_version="${NEOVEX_MACHINE_OS_VERSION:-}"
+source_repository_url="${NIMBUS_MACHINE_OS_SOURCE_REPOSITORY_URL:-https://github.com/nimbus/nimbus-machine-os}"
+attestation_repository="${NIMBUS_MACHINE_OS_ATTESTATION_REPOSITORY:-nimbus/nimbus-machine-os}"
+nimbus_version="${NIMBUS_MACHINE_OS_VERSION:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -163,8 +163,8 @@ while [[ $# -gt 0 ]]; do
       attestation_repository="${2:-}"
       shift 2
       ;;
-    --neovex-version)
-      neovex_version="${2:-}"
+    --nimbus-version)
+      nimbus_version="${2:-}"
       shift 2
       ;;
     -h|--help)
@@ -197,8 +197,8 @@ if [[ -n "${summary_file}" ]]; then
       raw_disk_path="$(summary_value "${summary_file}" raw_disk_path)"
     fi
   fi
-  if [[ -z "${neovex_version}" ]]; then
-    neovex_version="$(summary_value "${summary_file}" neovex_version)"
+  if [[ -z "${nimbus_version}" ]]; then
+    nimbus_version="$(summary_value "${summary_file}" nimbus_version)"
   fi
 fi
 
@@ -249,7 +249,7 @@ manifest_annotations="$(build_annotation_entries \
   "${ref_name}" \
   "${source_repository_url}" \
   "${attestation_repository}" \
-  "${neovex_version}")"
+  "${nimbus_version}")"
 index_annotations="$(printf '"disktype":"raw",%s' "${manifest_annotations}")"
 
 config_path="${temp_dir}/config.json"
@@ -284,7 +284,7 @@ oci_arch=${oci_arch}
 oci_os=${oci_os}
 source_repository_url=${source_repository_url}
 attestation_repository=${attestation_repository}
-neovex_version=${neovex_version:-<unspecified>}
+nimbus_version=${nimbus_version:-<unspecified>}
 layer_media_type=${layer_media_type}
 layer_title=${layer_title}
 layer_digest=${layer_digest}
