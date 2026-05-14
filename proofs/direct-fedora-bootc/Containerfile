@@ -1,4 +1,4 @@
-ARG FEDORA_BOOTC_BASE_IMAGE=quay.io/fedora/fedora-bootc@sha256:187d480948fe37a4cc55211b8a594adfc4f85a7d17ac1991331bf98272eb8f94
+ARG FEDORA_BOOTC_BASE_IMAGE=quay.io/fedora/fedora-bootc@sha256:5f2aa40538a71e32eba8dcdf9059dda10600bac68acef4588cb1aecedcfc6fe2
 FROM ${FEDORA_BOOTC_BASE_IMAGE}
 
 RUN --mount=type=bind,source=/build-common.sh,target=/run/build-common.sh,z \

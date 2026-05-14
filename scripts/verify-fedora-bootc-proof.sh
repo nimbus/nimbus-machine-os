@@ -12,7 +12,7 @@ bash -n "${proof_dir}/build-common.sh"
 bash "${proof_dir}/build.sh" --help >/dev/null
 
 grep -F 'FROM ${FEDORA_BOOTC_BASE_IMAGE}' "${proof_dir}/Containerfile" >/dev/null
-grep -F 'quay.io/fedora/fedora-bootc@sha256:187d480948fe37a4cc55211b8a594adfc4f85a7d17ac1991331bf98272eb8f94' "${proof_dir}/Containerfile" >/dev/null
+grep -F 'quay.io/fedora/fedora-bootc@sha256:5f2aa40538a71e32eba8dcdf9059dda10600bac68acef4588cb1aecedcfc6fe2' "${proof_dir}/Containerfile" >/dev/null
 grep -F 'u nimbus - "Nimbus machine administrator" /var/lib/nimbus /bin/bash' "${proof_dir}/build-common.sh" >/dev/null
 grep -F '/etc/systemd/system/local-fs.target.wants' "${proof_dir}/build-common.sh" >/dev/null
 grep -F '/etc/systemd/system/multi-user.target.wants' "${proof_dir}/build-common.sh" >/dev/null
@@ -129,7 +129,7 @@ test -f "${output_dir}/nimbus-machine-os-fedora-bootc-proof.raw.gz"
 test -f "${output_dir}/summary.txt"
 grep -F -- '--build-arg FEDORA_BOOTC_BASE_IMAGE=' "${temp_dir}/podman.log" >/dev/null
 grep -F -- '--no-cache' "${temp_dir}/podman.log" >/dev/null
-grep -F -- 'quay.io/fedora/fedora-bootc@sha256:187d480948fe37a4cc55211b8a594adfc4f85a7d17ac1991331bf98272eb8f94' "${temp_dir}/podman.log" >/dev/null
+grep -F -- 'quay.io/fedora/fedora-bootc@sha256:5f2aa40538a71e32eba8dcdf9059dda10600bac68acef4588cb1aecedcfc6fe2' "${temp_dir}/podman.log" >/dev/null
 grep -F -- 'quay.io/centos-bootc/bootc-image-builder@sha256:754fc17718f977313885379e2c779066aba7d15af88fe04b486baec74759f574' "${temp_dir}/podman.log" >/dev/null
 grep -F -- '--type raw' "${temp_dir}/podman.log" >/dev/null
 grep -F -- '--rootfs ext4' "${temp_dir}/podman.log" >/dev/null
