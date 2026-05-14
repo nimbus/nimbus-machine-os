@@ -165,6 +165,7 @@ jobs:
         run: |
           test -f "${BUILD_OUTPUT_DIR}/summary.txt"
           test -f "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz"
+          test -f "${BUILD_OUTPUT_DIR}/nimbus-machine-os.sbom.cdx.json"
           test -f "${LAYOUT_DIR}/summary.txt"
           test -f "${LAYOUT_DIR}/index.json"
           test -d "${LAYOUT_DIR}/blobs/sha256"
@@ -183,15 +184,30 @@ jobs:
       - name: Prepare GitHub release bundle
         if: steps.release-metadata.outputs.create_release == 'true'
         run: |
+          primary_digest="$(awk -F= '$1 == "image_digest" { print substr($0, length($1) + 2) }' "${RELEASE_DIR}/publish-summary.txt" | tail -n 1)"
+          digest_reference="$(awk -F= '$1 == "image_digest_reference" { print substr($0, length($1) + 2) }' "${RELEASE_DIR}/publish-summary.txt" | tail -n 1)"
+          if [[ -z "${primary_digest}" || -z "${digest_reference}" ]]; then
+            echo "publish-summary.txt must include image_digest and image_digest_reference before release creation" >&2
+            exit 65
+          fi
+
           cat > "${RELEASE_DIR}/machine-image-reference.txt" <<EOF_RELEASE_REF
-          ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}
+          tag_reference=ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}
+          digest_reference=${digest_reference}
+          digest=${primary_digest}
           EOF_RELEASE_REF
+          (
+            cd "${RELEASE_DIR}"
+            rm -f checksums.txt
+            sha256sum ./* >checksums.txt
+          )
 
           cat > "${RELEASE_DIR}/release-notes.md" <<EOF_RELEASE_NOTES
           nimbus-machine-os release ${{ steps.release-metadata.outputs.release_tag }}
 
           OCI image:
-          - \`ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}\`
+          - tag: \`ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}\`
+          - digest: \`${digest_reference}\`
 
           Source nimbus release:
           - \`https://github.com/${{ steps.source-repo.outputs.repository }}/releases/tag/${{ inputs.nimbus_version }}\`
@@ -201,8 +217,10 @@ jobs:
 
           Included assets:
           - \`nimbus-machine-os.raw.gz\`
+          - \`nimbus-machine-os.sbom.cdx.json\`
           - \`checksums.txt\`
           - \`publish-summary.txt\`
+          - \`published-digests.txt\`
           - \`machine-image-reference.txt\`
           EOF_RELEASE_NOTES
 
@@ -216,8 +234,10 @@ jobs:
           release_target_sha="$(git rev-parse HEAD)"
           assets=(
             "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz"
+            "${BUILD_OUTPUT_DIR}/nimbus-machine-os.sbom.cdx.json"
             "${RELEASE_DIR}/checksums.txt"
             "${RELEASE_DIR}/publish-summary.txt"
+            "${RELEASE_DIR}/published-digests.txt"
             "${RELEASE_DIR}/machine-image-reference.txt"
           )
 
@@ -241,7 +261,10 @@ jobs:
         with:
           subject-path: |
             ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.raw.gz
+            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.sbom.cdx.json
             ${{ env.RELEASE_DIR }}/checksums.txt
+            ${{ env.RELEASE_DIR }}/published-digests.txt
+            ${{ env.RELEASE_DIR }}/machine-image-reference.txt
 
       - name: Upload publish bundle
         uses: actions/upload-artifact@v7
@@ -250,5 +273,7 @@ jobs:
           if-no-files-found: error
           path: |
             ${{ env.RELEASE_DIR }}/publish-summary.txt
+            ${{ env.RELEASE_DIR }}/published-digests.txt
+            ${{ env.RELEASE_DIR }}/machine-image-reference.txt
             ${{ env.RELEASE_DIR }}/checksums.txt
           compression-level: 0

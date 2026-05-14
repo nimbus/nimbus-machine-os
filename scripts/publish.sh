@@ -97,6 +97,7 @@ done
 
 require_command skopeo
 require_command sha256sum
+require_command mktemp
 
 if [[ -z "${image_reference}" ]]; then
   echo "--image-reference is required" >&2
@@ -139,10 +140,28 @@ fi
 
 source_ref="oci:${layout_dir}:${layout_ref_name}"
 refs_to_publish=("${image_reference}" "${additional_references[@]}")
+digest_dir="$(mktemp -d)"
+trap 'rm -rf "${digest_dir}"' EXIT
+declare -a published_digest_entries=()
+primary_digest=""
+primary_digest_reference=""
 
-for reference in "${refs_to_publish[@]}"; do
+for index in "${!refs_to_publish[@]}"; do
+  reference="${refs_to_publish[${index}]}"
   destination_ref="docker://${reference#docker://}"
-  skopeo "${copy_args[@]}" "${source_ref}" "${destination_ref}"
+  digest_file="${digest_dir}/digest-${index}.txt"
+  skopeo "${copy_args[@]}" --digestfile "${digest_file}" "${source_ref}" "${destination_ref}"
+  published_digest="$(tr -d '[:space:]' <"${digest_file}")"
+  if [[ -z "${published_digest}" ]]; then
+    echo "skopeo did not write a published manifest digest for ${destination_ref}" >&2
+    exit 65
+  fi
+  digest_reference="${destination_ref#docker://}@${published_digest}"
+  published_digest_entries+=("${destination_ref#docker://}=${published_digest}")
+  if [[ "${index}" -eq 0 ]]; then
+    primary_digest="${published_digest}"
+    primary_digest_reference="${digest_reference}"
+  fi
 done
 
 if [[ -n "${release_dir}" ]]; then
@@ -157,13 +176,19 @@ if [[ -n "${release_dir}" ]]; then
     if [[ -n "${raw_disk_path}" && "${raw_disk_path}" != "<not-built>" && -f "${raw_disk_path}" ]]; then
       cp "${raw_disk_path}" "${release_dir}/$(basename "${raw_disk_path}")"
     fi
+    sbom_path="$(summary_value "${build_output_dir%/}/summary.txt" sbom_path)"
+    if [[ -n "${sbom_path}" && "${sbom_path}" != "<not-built>" && -f "${sbom_path}" ]]; then
+      cp "${sbom_path}" "${release_dir}/$(basename "${sbom_path}")"
+    fi
   fi
 
   cp "${layout_summary}" "${release_dir}/oci-layout-summary.txt"
-  (
-    cd "${release_dir}"
-    sha256sum ./* >checksums.txt
-  )
+  printf '%s\n' "${published_digest_entries[@]}" >"${release_dir}/published-digests.txt"
+  {
+    printf 'tag_reference=%s\n' "${image_reference#docker://}"
+    printf 'digest_reference=%s\n' "${primary_digest_reference}"
+    printf 'digest=%s\n' "${primary_digest}"
+  } >"${release_dir}/machine-image-reference.txt"
 fi
 
 publish_summary="${release_dir:-${layout_dir}}/publish-summary.txt"
@@ -171,12 +196,23 @@ publish_summary="${release_dir:-${layout_dir}}/publish-summary.txt"
   printf 'layout_dir=%s\n' "${layout_dir}"
   printf 'layout_ref_name=%s\n' "${layout_ref_name}"
   printf 'image_reference=%s\n' "${image_reference}"
+  printf 'image_digest=%s\n' "${primary_digest}"
+  printf 'image_digest_reference=%s\n' "${primary_digest_reference}"
   if [[ ${#additional_references[@]} -gt 0 ]]; then
     printf 'additional_references=%s\n' "$(IFS=,; printf '%s' "${additional_references[*]}")"
   else
     printf 'additional_references=<none>\n'
   fi
+  printf 'published_digests=%s\n' "$(IFS=,; printf '%s' "${published_digest_entries[*]}")"
   printf 'release_dir=%s\n' "${release_dir:-<not-staged>}"
 } >"${publish_summary}"
+
+if [[ -n "${release_dir}" ]]; then
+  (
+    cd "${release_dir}"
+    rm -f checksums.txt
+    sha256sum ./* >checksums.txt
+  )
+fi
 
 printf 'published machine OCI layout from %s\n' "${layout_dir}"
