@@ -11,10 +11,10 @@ printf 'raw-disk-bytes-for-layout-test' | gzip -c >"${raw_disk_path}"
 layout_dir="${temp_dir}/oci-layout"
 bash "${repo_root}/scripts/package-oci.sh" \
   --raw-disk "${raw_disk_path}" \
-  --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:v1.2.3 \
+  --image-reference docker://ghcr.io/nimbus/machine-os:v1.2.3 \
   --layout-dir "${layout_dir}" \
   --arch arm64 \
-  --source-repository-url https://github.com/nimbus/nimbus-machine-os \
+  --source-repository-url https://github.com/nimbus/machine-os \
   --source-revision abc123def456 \
   --attestation-repository nimbus/nimbus \
   --nimbus-version v1.2.3
@@ -28,15 +28,20 @@ if grep -F '"disktype":"raw"' "${layout_dir}/index.json" >/dev/null; then
   exit 1
 fi
 grep -F '"org.opencontainers.image.ref.name":"v1.2.3"' "${layout_dir}/index.json" >/dev/null
-grep -F '"org.opencontainers.image.source":"https://github.com/nimbus/nimbus-machine-os"' "${layout_dir}/index.json" >/dev/null
+grep -F '"org.opencontainers.image.source":"https://github.com/nimbus/machine-os"' "${layout_dir}/index.json" >/dev/null
 grep -F '"org.opencontainers.image.revision":"abc123def456"' "${layout_dir}/index.json" >/dev/null
 grep -F '"io.nimbus.machine.attestation.repository":"nimbus/nimbus"' "${layout_dir}/index.json" >/dev/null
 grep -F '"io.nimbus.machine.nimbus.version":"v1.2.3"' "${layout_dir}/index.json" >/dev/null
+manifest_digest="$(awk -F= '$1 == "manifest_digest" { print substr($0, length($1) + 2) }' "${layout_dir}/summary.txt" | tail -n 1)"
+manifest_hex="${manifest_digest#sha256:}"
+config_digest="$(awk -F'"' '/"config":/ { for (i = 1; i <= NF; i++) if ($i == "digest") { print $(i + 2); exit } }' "${layout_dir}/blobs/sha256/${manifest_hex}")"
+config_hex="${config_digest#sha256:}"
+grep -F '"org.opencontainers.image.source":"https://github.com/nimbus/machine-os"' "${layout_dir}/blobs/sha256/${config_hex}" >/dev/null
 grep -F 'layer_media_type=application/vnd.nimbus.machine.disk.layer.v1.raw+gzip' "${layout_dir}/summary.txt" >/dev/null
 grep -F 'disk_type=applehv' "${layout_dir}/summary.txt" >/dev/null
 grep -F 'oci_arch=arm64' "${layout_dir}/summary.txt" >/dev/null
-grep -F 'image_reference=docker://ghcr.io/nimbus/nimbus-machine-os:v1.2.3' "${layout_dir}/summary.txt" >/dev/null
-grep -F 'source_repository_url=https://github.com/nimbus/nimbus-machine-os' "${layout_dir}/summary.txt" >/dev/null
+grep -F 'image_reference=docker://ghcr.io/nimbus/machine-os:v1.2.3' "${layout_dir}/summary.txt" >/dev/null
+grep -F 'source_repository_url=https://github.com/nimbus/machine-os' "${layout_dir}/summary.txt" >/dev/null
 grep -F 'source_revision=abc123def456' "${layout_dir}/summary.txt" >/dev/null
 grep -F 'attestation_repository=nimbus/nimbus' "${layout_dir}/summary.txt" >/dev/null
 grep -F 'nimbus_version=v1.2.3' "${layout_dir}/summary.txt" >/dev/null

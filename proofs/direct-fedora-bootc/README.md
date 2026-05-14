@@ -34,7 +34,7 @@ Package the proof output with the shared OCI wrapper:
 ```bash
 bash scripts/package-oci.sh \
   --build-output-dir /tmp/nimbus-machine-os-fedora-bootc-proof \
-  --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:fedora-bootc-proof \
+  --image-reference docker://ghcr.io/nimbus/machine-os:fedora-bootc-proof \
   --layout-dir /tmp/nimbus-machine-os-fedora-bootc-proof/oci-layout \
   --arch arm64 \
   --disk-type applehv

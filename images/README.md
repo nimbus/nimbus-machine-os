@@ -81,7 +81,7 @@ Package the raw disk into the OCI layout expected by the host manager:
 ```bash
 bash scripts/package-oci.sh \
   --build-output-dir /tmp/nimbus-machine-os \
-  --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:vX.Y.Z \
+  --image-reference docker://ghcr.io/nimbus/machine-os:vX.Y.Z \
   --layout-dir /tmp/nimbus-machine-os/oci-layout
 ```
 
@@ -90,8 +90,8 @@ Publish the packaged layout:
 ```bash
 bash scripts/publish.sh \
   --layout-dir /tmp/nimbus-machine-os/oci-layout \
-  --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:vX.Y.Z \
-  --additional-reference docker://ghcr.io/nimbus/nimbus-machine-os:stable \
+  --image-reference docker://ghcr.io/nimbus/machine-os:vX.Y.Z \
+  --additional-reference docker://ghcr.io/nimbus/machine-os:stable \
   --release-dir /tmp/nimbus-machine-os/release
 ```
 
@@ -114,12 +114,16 @@ The owning workflow is:
 
 Release shape:
 
-- `nimbus/nimbus` `v*` releases call this workflow via `workflow_call`
-  and pass the same tag as `nimbus_version`
-- standalone `nimbus/nimbus-machine-os` `v*` tags must embed the same
-  Nimbus version they publish
-- non-release validation runs may float to Nimbus's latest published release,
-  but they do not publish immutable artifacts
+- `nimbus/nimbus` `v*` releases build and stage the machine-os artifact from
+  the product release graph, then dispatch `.github/workflows/publish.yml`
+  after every CLI/platform release target has passed.
+- `.github/workflows/publish.yml` owns external GHCR publication, GitHub
+  Release mutation, provenance attestations, and release-bundle upload from
+  the `nimbus/machine-os` repository context.
+- standalone `nimbus/machine-os` `v*` tags and manual build runs are
+  validation lanes only; they may float to Nimbus's latest published release
+  when no explicit Nimbus version is provided, and they do not publish
+  immutable artifacts.
 
 ## Verification
 

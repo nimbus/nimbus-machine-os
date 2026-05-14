@@ -1,7 +1,7 @@
 name: Build machine-os
 run-name: >-
   Build machine-os${{
-    inputs.release_tag != '' && format(' ({0})', inputs.release_tag)
+    inputs.nimbus_version != '' && format(' ({0})', inputs.nimbus_version)
     || startsWith(github.ref, 'refs/tags/') && format(' ({0})', github.ref_name)
     || ''
   }}
@@ -26,86 +26,15 @@ on:
   workflow_dispatch:
     inputs:
       nimbus_version:
-        description: "Nimbus release tag to download (e.g. vX.Y.Z)"
-        required: true
-        type: string
-      release_tag:
-        description: "Optional machine-os release tag to create or update (e.g. vX.Y.Z)"
+        description: "Nimbus release tag to download (for example vX.Y.Z); defaults to the latest Nimbus release"
         required: false
         default: ""
         type: string
-      nimbus_artifact_name:
-        description: "Optional nimbus workflow artifact name to consume from the current run"
-        required: false
-        default: ""
-        type: string
-      create_release:
-        description: "Create or update a GitHub release in the machine-os repo"
-        required: true
-        default: false
-        type: boolean
-      publish:
-        description: "Push the packaged raw-disk OCI artifact to GHCR"
-        required: true
-        default: false
-        type: boolean
       image_reference:
-        description: "Immutable destination image reference for the packaged machine artifact"
-        required: true
-        default: "docker://ghcr.io/nimbus/nimbus-machine-os:v0.0.0-dev"
-        type: string
-      stage_artifact_name:
-        description: "Optional artifact name used to stage the built machine bundle for a later publish/release lane"
+        description: "Reference recorded in the local OCI layout summary"
         required: false
-        default: ""
+        default: "docker://ghcr.io/nimbus/machine-os:dev"
         type: string
-      release_app_id:
-        description: "Optional GitHub App ID used to mint a cross-repo release token for publish/release lanes"
-        required: false
-        default: ""
-        type: string
-  workflow_call:
-    inputs:
-      nimbus_version:
-        description: "Nimbus release tag to download (e.g. vX.Y.Z)"
-        required: true
-        type: string
-      release_tag:
-        description: "Optional machine-os release tag to create or update (e.g. vX.Y.Z)"
-        required: false
-        default: ""
-        type: string
-      nimbus_artifact_name:
-        description: "Optional nimbus workflow artifact name to consume from the caller run"
-        required: false
-        default: ""
-        type: string
-      create_release:
-        description: "Create or update a GitHub release in the machine-os repo"
-        required: false
-        default: false
-        type: boolean
-      publish:
-        description: "Push the packaged raw-disk OCI artifact to GHCR"
-        required: true
-        type: boolean
-      image_reference:
-        description: "Immutable destination image reference for the packaged machine artifact"
-        required: true
-        type: string
-      stage_artifact_name:
-        description: "Optional artifact name used to stage the built machine bundle for a later publish/release lane"
-        required: false
-        default: ""
-        type: string
-      release_app_id:
-        description: "Optional GitHub App ID used to mint a cross-repo release token for publish/release lanes"
-        required: false
-        default: ""
-        type: string
-    secrets:
-      MACHINE_OS_RELEASE_APP_PRIVATE_KEY:
-        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.nimbus_version || github.ref }}
@@ -126,8 +55,6 @@ jobs:
     steps:
       - name: Check out machine-os repository
         uses: actions/checkout@v6
-        with:
-          repository: nimbus/nimbus-machine-os
 
       - name: Verify helper syntax and help entrypoints
         run: |
@@ -161,63 +88,62 @@ jobs:
     name: Build machine-os (linux arm64)
     needs: verify-contract
     if: >-
-      github.event_name == 'workflow_call'
-      || github.event_name == 'workflow_dispatch'
+      github.event_name == 'workflow_dispatch'
       || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 120
     permissions:
-      contents: write
-      packages: write
-      id-token: write
-      attestations: write
+      contents: read
 
     steps:
       - name: Check out machine-os repository
         uses: actions/checkout@v6
-        with:
-          repository: nimbus/nimbus-machine-os
 
       - name: Initialize build directories
         run: |
           {
             echo "BUILD_OUTPUT_DIR=${RUNNER_TEMP}/nimbus-machine-os"
             echo "LAYOUT_DIR=${RUNNER_TEMP}/nimbus-machine-os-layout"
-            echo "RELEASE_DIR=${RUNNER_TEMP}/nimbus-machine-os-release"
           } >> "${GITHUB_ENV}"
           mkdir -p \
             "${RUNNER_TEMP}/nimbus-machine-os" \
-            "${RUNNER_TEMP}/nimbus-machine-os-layout" \
-            "${RUNNER_TEMP}/nimbus-machine-os-release"
+            "${RUNNER_TEMP}/nimbus-machine-os-layout"
 
       - name: Determine nimbus version
         id: nimbus-version
-        run: |
-          if [[ -n "${{ inputs.nimbus_version }}" ]]; then
-            echo "tag=${{ inputs.nimbus_version }}" >> "${GITHUB_OUTPUT}"
-          elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
-            # Standalone machine-os release tags are expected to mirror the
-            # embedded nimbus version exactly.
-            echo "tag=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
-          else
-            # Non-release validation lanes can float to the latest published
-            # nimbus release because they do not publish immutable artifacts.
-            tag="$(gh api repos/nimbus/nimbus/releases/latest --jq '.tag_name')"
-            echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
-          fi
         env:
           GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ -n "${{ inputs.nimbus_version }}" ]]; then
+            tag="${{ inputs.nimbus_version }}"
+          elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            tag="$(gh api repos/nimbus/nimbus/releases/latest --jq '.tag_name')"
+          fi
 
-      - name: Download nimbus binary from workflow artifact
-        id: artifact-download
-        if: inputs.nimbus_artifact_name != ''
-        uses: actions/download-artifact@v8
-        with:
-          name: ${{ inputs.nimbus_artifact_name }}
-          path: ${{ runner.temp }}
+          if [[ -z "${tag}" ]]; then
+            echo "could not determine Nimbus release tag" >&2
+            exit 65
+          fi
+
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Resolve image reference
+        id: image-reference
+        run: |
+          image_reference="${{ inputs.image_reference }}"
+          if [[ -z "${image_reference}" ]]; then
+            if [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
+              image_reference="docker://ghcr.io/nimbus/machine-os:${GITHUB_REF_NAME}"
+            else
+              image_reference="docker://ghcr.io/nimbus/machine-os:dev"
+            fi
+          fi
+
+          echo "image_reference=${image_reference}" >> "${GITHUB_OUTPUT}"
 
       - name: Download nimbus binary from GitHub Release
-        if: inputs.nimbus_artifact_name == ''
         run: |
           tag="${{ steps.nimbus-version.outputs.tag }}"
           curl -fsSL -o "${RUNNER_TEMP}/nimbus_linux_arm64.tar.gz" \
@@ -236,7 +162,6 @@ jobs:
           command -v podman
           command -v gzip
           command -v sha256sum
-          command -v skopeo
           sudo -n true
 
       - name: Restore container image cache
@@ -257,94 +182,6 @@ jobs:
               sudo podman load -i "${archive}"
             fi
           done
-
-      - name: Resolve image reference
-        id: release-policy
-        run: |
-          if [[ -n "${{ inputs.image_reference }}" ]]; then
-            image_reference="${{ inputs.image_reference }}"
-          else
-            tag_name="${GITHUB_REF_NAME}"
-            image_reference="docker://ghcr.io/nimbus/nimbus-machine-os:${tag_name}"
-          fi
-
-          publish="${{ inputs.publish }}"
-          if [[ -z "${publish}" ]]; then
-            if [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
-              publish='true'
-            else
-              publish='false'
-            fi
-          fi
-
-          if [[ "${publish}" == 'true' && ! "${image_reference}" =~ :v[0-9] ]]; then
-            echo "publishes must use an immutable version tag such as vX.Y.Z" >&2
-            exit 1
-          fi
-
-          {
-            echo "image_reference=${image_reference}"
-            echo "publish=${publish}"
-          } >> "${GITHUB_OUTPUT}"
-
-      - name: Resolve release metadata
-        id: release-metadata
-        run: |
-          release_tag="${{ inputs.release_tag }}"
-          if [[ -z "${release_tag}" && "${GITHUB_REF:-}" == refs/tags/v* ]]; then
-            release_tag="${GITHUB_REF_NAME}"
-          fi
-
-          create_release="${{ inputs.create_release }}"
-          if [[ -z "${create_release}" ]]; then
-            if [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
-              create_release='true'
-            else
-              create_release='false'
-            fi
-          fi
-
-          if [[ "${create_release}" == "true" && "${{ steps.release-policy.outputs.publish }}" != "true" ]]; then
-            echo "machine-os GitHub releases require publish=true so the release page and GHCR tag stay in sync" >&2
-            exit 1
-          fi
-
-          {
-            echo "release_tag=${release_tag}"
-            echo "create_release=${create_release}"
-          } >> "${GITHUB_OUTPUT}"
-
-      - name: Verify cross-repo release auth
-        if: >-
-          github.event_name == 'workflow_call'
-          && (steps.release-policy.outputs.publish == 'true'
-          || steps.release-metadata.outputs.create_release == 'true')
-        env:
-          MACHINE_OS_RELEASE_APP_PRIVATE_KEY: ${{ secrets.MACHINE_OS_RELEASE_APP_PRIVATE_KEY }}
-        run: |
-          if [[ -z "${{ inputs.release_app_id }}" ]]; then
-            echo "release_app_id must be passed to the reusable machine-os workflow when it publishes GHCR artifacts or creates a GitHub release for nimbus/nimbus-machine-os." >&2
-            exit 1
-          fi
-          if [[ -z "${MACHINE_OS_RELEASE_APP_PRIVATE_KEY}" ]]; then
-            echo "MACHINE_OS_RELEASE_APP_PRIVATE_KEY must be passed to the reusable machine-os workflow when it publishes GHCR artifacts or creates a GitHub release for nimbus/nimbus-machine-os." >&2
-            exit 1
-          fi
-
-      - name: Create machine-os release app token
-        id: release_app_token
-        if: >-
-          github.event_name == 'workflow_call'
-          && (steps.release-policy.outputs.publish == 'true'
-          || steps.release-metadata.outputs.create_release == 'true')
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ inputs.release_app_id }}
-          private-key: ${{ secrets.MACHINE_OS_RELEASE_APP_PRIVATE_KEY }}
-          owner: nimbus
-          repositories: nimbus-machine-os
-          permission-contents: write
-          permission-packages: write
 
       - name: Pull base images
         run: |
@@ -374,135 +211,18 @@ jobs:
         run: |
           bash scripts/package-oci.sh \
             --build-output-dir "${BUILD_OUTPUT_DIR}" \
-            --image-reference "${{ steps.release-policy.outputs.image_reference }}" \
+            --image-reference "${{ steps.image-reference.outputs.image_reference }}" \
             --layout-dir "${LAYOUT_DIR}" \
             --arch arm64 \
-            --source-repository-url "https://github.com/nimbus/nimbus-machine-os" \
+            --source-repository-url "https://github.com/nimbus/machine-os" \
             --source-revision "${GITHUB_SHA}" \
             --attestation-repository "${{ github.repository }}" \
             --nimbus-version "${{ steps.nimbus-version.outputs.tag }}"
 
-      - name: Stage reusable machine-os bundle
-        if: inputs.stage_artifact_name != ''
-        run: |
-          stage_root="${RUNNER_TEMP}/nimbus-machine-os-stage"
-          rm -rf "${stage_root}"
-          mkdir -p "${stage_root}/build-output" "${stage_root}/layout"
-
-          cp "${BUILD_OUTPUT_DIR}/summary.txt" "${stage_root}/build-output/"
-          cp "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz" "${stage_root}/build-output/"
-          cp "${BUILD_OUTPUT_DIR}/nimbus-machine-os.sbom.cdx.json" "${stage_root}/build-output/"
-          cp -R "${LAYOUT_DIR}/." "${stage_root}/layout/"
-
-      - name: Upload staged machine-os bundle
-        if: inputs.stage_artifact_name != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ inputs.stage_artifact_name }}
-          if-no-files-found: error
-          path: ${{ runner.temp }}/nimbus-machine-os-stage/
-          compression-level: 0
-
-      - name: Publish packaged OCI artifact
-        if: steps.release-policy.outputs.publish == 'true'
-        env:
-          NIMBUS_MACHINE_OS_REGISTRY_USERNAME: ${{ steps.release_app_token.outputs.app-slug != '' && format('{0}[bot]', steps.release_app_token.outputs.app-slug) || github.actor }}
-          NIMBUS_MACHINE_OS_REGISTRY_PASSWORD: ${{ steps.release_app_token.outputs.token || github.token }}
-        run: |
-          bash scripts/publish.sh \
-            --layout-dir "${LAYOUT_DIR}" \
-            --build-output-dir "${BUILD_OUTPUT_DIR}" \
-            --image-reference "${{ steps.release-policy.outputs.image_reference }}" \
-            --release-dir "${RELEASE_DIR}"
-
-      - name: Prepare GitHub release bundle
-        if: steps.release-metadata.outputs.create_release == 'true'
-        run: |
-          primary_digest="$(awk -F= '$1 == "image_digest" { print substr($0, length($1) + 2) }' "${RELEASE_DIR}/publish-summary.txt" | tail -n 1)"
-          digest_reference="$(awk -F= '$1 == "image_digest_reference" { print substr($0, length($1) + 2) }' "${RELEASE_DIR}/publish-summary.txt" | tail -n 1)"
-          if [[ -z "${primary_digest}" || -z "${digest_reference}" ]]; then
-            echo "publish-summary.txt must include image_digest and image_digest_reference before release creation" >&2
-            exit 65
-          fi
-
-          cat > "${RELEASE_DIR}/machine-image-reference.txt" <<EOF
-          tag_reference=ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}
-          digest_reference=${digest_reference}
-          digest=${primary_digest}
-          EOF
-          (
-            cd "${RELEASE_DIR}"
-            rm -f checksums.txt
-            sha256sum ./* >checksums.txt
-          )
-
-          cat > "${RELEASE_DIR}/release-notes.md" <<EOF
-          nimbus-machine-os release ${{ steps.release-metadata.outputs.release_tag }}
-
-          OCI image:
-          - tag: \`ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}\`
-          - digest: \`${digest_reference}\`
-
-          Source nimbus release:
-          - \`https://github.com/nimbus/nimbus/releases/tag/${{ steps.nimbus-version.outputs.tag }}\`
-
-          Included assets:
-          - \`nimbus-machine-os.raw.gz\`
-          - \`nimbus-machine-os.sbom.cdx.json\`
-          - \`checksums.txt\`
-          - \`publish-summary.txt\`
-          - \`published-digests.txt\`
-          - \`machine-image-reference.txt\`
-          EOF
-
-      - name: Create or update GitHub release
-        if: steps.release-metadata.outputs.create_release == 'true'
-        env:
-          GH_TOKEN: ${{ steps.release_app_token.outputs.token || github.token }}
-        run: |
-          release_tag="${{ steps.release-metadata.outputs.release_tag }}"
-          release_repository="nimbus/nimbus-machine-os"
-          release_target_sha="$(git rev-parse HEAD)"
-          assets=(
-            "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz"
-            "${BUILD_OUTPUT_DIR}/nimbus-machine-os.sbom.cdx.json"
-            "${RELEASE_DIR}/checksums.txt"
-            "${RELEASE_DIR}/publish-summary.txt"
-            "${RELEASE_DIR}/published-digests.txt"
-            "${RELEASE_DIR}/machine-image-reference.txt"
-          )
-
-          if gh release view "${release_tag}" --repo "${release_repository}" >/dev/null 2>&1; then
-            gh release edit "${release_tag}" \
-              --repo "${release_repository}" \
-              --title "${release_tag}" \
-              --notes-file "${RELEASE_DIR}/release-notes.md"
-            gh release upload "${release_tag}" "${assets[@]}" --repo "${release_repository}" --clobber
-          else
-            gh release create "${release_tag}" \
-              --repo "${release_repository}" \
-              --target "${release_target_sha}" \
-              --title "${release_tag}" \
-              --notes-file "${RELEASE_DIR}/release-notes.md" \
-              "${assets[@]}"
-          fi
-
-      - name: Attest build provenance
-        if: steps.release-policy.outputs.publish == 'true'
-        uses: actions/attest@v4
-        with:
-          subject-path: |
-            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.ociarchive
-            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.raw.gz
-            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.sbom.cdx.json
-            ${{ env.RELEASE_DIR }}/checksums.txt
-            ${{ env.RELEASE_DIR }}/published-digests.txt
-            ${{ env.RELEASE_DIR }}/machine-image-reference.txt
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: nimbus-machine-os-arm64
+          name: machine-os-arm64-build
           if-no-files-found: error
           path: |
             ${{ env.BUILD_OUTPUT_DIR }}/summary.txt
@@ -511,17 +231,4 @@ jobs:
             ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.sbom.cdx.json
             ${{ env.LAYOUT_DIR }}/summary.txt
             ${{ env.LAYOUT_DIR }}/index.json
-          compression-level: 0
-
-      - name: Upload publish bundle
-        if: steps.release-policy.outputs.publish == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: nimbus-machine-os-arm64-publish
-          if-no-files-found: error
-          path: |
-            ${{ env.RELEASE_DIR }}/publish-summary.txt
-            ${{ env.RELEASE_DIR }}/published-digests.txt
-            ${{ env.RELEASE_DIR }}/machine-image-reference.txt
-            ${{ env.RELEASE_DIR }}/checksums.txt
           compression-level: 0

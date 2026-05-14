@@ -27,7 +27,7 @@ Options:
 Examples:
   bash scripts/package-oci.sh \
     --build-output-dir /tmp/nimbus-machine-os \
-    --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:vX.Y.Z \
+    --image-reference docker://ghcr.io/nimbus/machine-os:vX.Y.Z \
     --layout-dir /tmp/nimbus-machine-os/oci-layout
 EOF
 }
@@ -124,9 +124,9 @@ ref_name=""
 oci_arch="$(normalize_arch "${NIMBUS_MACHINE_OS_PACKAGE_TEST_ARCH:-$(uname -m)}")"
 oci_os="linux"
 disk_type="${NIMBUS_MACHINE_OS_DISK_TYPE:-applehv}"
-source_repository_url="${NIMBUS_MACHINE_OS_SOURCE_REPOSITORY_URL:-https://github.com/nimbus/nimbus-machine-os}"
+source_repository_url="${NIMBUS_MACHINE_OS_SOURCE_REPOSITORY_URL:-https://github.com/nimbus/machine-os}"
 source_revision="${NIMBUS_MACHINE_OS_SOURCE_REVISION:-}"
-attestation_repository="${NIMBUS_MACHINE_OS_ATTESTATION_REPOSITORY:-nimbus/nimbus-machine-os}"
+attestation_repository="${NIMBUS_MACHINE_OS_ATTESTATION_REPOSITORY:-nimbus/machine-os}"
 nimbus_version="${NIMBUS_MACHINE_OS_VERSION:-}"
 
 while [[ $# -gt 0 ]]; do
@@ -284,7 +284,7 @@ index_annotations="$(printf '"disktype":"%s",%s' "$(json_escape "${disk_type}")"
 
 config_path="${temp_dir}/config.json"
 cat >"${config_path}" <<EOF
-{"architecture":"${oci_arch}","os":"${oci_os}","rootfs":{"type":"layers","diff_ids":[]},"config":{}}
+{"architecture":"${oci_arch}","os":"${oci_os}","rootfs":{"type":"layers","diff_ids":[]},"config":{"Labels":{"org.opencontainers.image.source":"$(json_escape "${source_repository_url}")"}}}
 EOF
 config_size="$(file_size_bytes "${config_path}")"
 config_hex="$(sha256_hex "${config_path}")"

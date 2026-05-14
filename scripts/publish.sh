@@ -25,8 +25,8 @@ Environment:
 Example:
   bash scripts/publish.sh \
     --layout-dir /tmp/nimbus-machine-os/oci-layout \
-    --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:vX.Y.Z \
-    --additional-reference docker://ghcr.io/nimbus/nimbus-machine-os:stable \
+    --image-reference docker://ghcr.io/nimbus/machine-os:vX.Y.Z \
+    --additional-reference docker://ghcr.io/nimbus/machine-os:stable \
     --release-dir /tmp/nimbus-machine-os/release
 EOF
 }

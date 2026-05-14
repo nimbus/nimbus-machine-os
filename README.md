@@ -1,4 +1,4 @@
-# nimbus-machine-os
+# machine-os
 
 Guest OS image for the nimbus macOS developer machine. Built as a
 direct Fedora bootc image with nimbus and container tooling pre-installed.
@@ -41,7 +41,7 @@ converted to a raw disk image via a digest-pinned `bootc-image-builder`.
 
 | Artifact | Location |
 |----------|----------|
-| Raw-disk OCI image | `ghcr.io/nimbus/nimbus-machine-os:<tag>` plus a release-recorded digest reference |
+| Raw-disk OCI image | `ghcr.io/nimbus/machine-os:<tag>` plus a release-recorded digest reference |
 | SBOM | `nimbus-machine-os.sbom.cdx.json` release asset |
 | Checksums and digest evidence | `checksums.txt`, `published-digests.txt`, and `machine-image-reference.txt` release assets |
 | Build provenance | GitHub Attestations (via `actions/attest`) |
@@ -89,34 +89,33 @@ The GitHub Actions workflow (`.github/workflows/build.yml`) runs on
 
 1. **verify-contract** — script syntax, help entrypoints, deterministic
    helper tests
-2. **build-arm64** — downloads or receives the matching nimbus Linux binary,
-   builds the guest image, packages it as OCI layout, publishes to GHCR on
-   `v*` tags, and attests the build output
+2. **build-arm64** — for manual or tag-triggered validation, downloads the
+   matching nimbus Linux binary, builds the guest image, packages it as an OCI
+   layout, and uploads internal build evidence without publishing or creating
+   external releases
 
 Primary release path:
 
-- `nimbus/nimbus` `v*` releases call `build.yml` first as the staging
-  lane that verifies the machine-os repo and builds the raw-disk OCI bundle
-- that staging lane uploads a reusable machine-os artifact bundle inside the
-  caller's workflow run
-- after the host `nimbus/nimbus` release succeeds, the caller invokes
-  `publish.yml`, which downloads that staged bundle and publishes/releases it
-  without rebuilding the machine image
-- the publish/release call must pass `release_app_id` plus the
-  `MACHINE_OS_RELEASE_APP_PRIVATE_KEY` secret so the reusable workflow can
-  mint its own installation token for `nimbus/nimbus-machine-os`
-- the reusable workflow uses that GitHub App token for both GHCR publishing
-  and `gh release ... --repo nimbus/nimbus-machine-os`; standalone
-  runs in this repository continue to use the native `github.token`
-- standalone `nimbus/nimbus-machine-os` `v*` tags are expected to use
-  the same `v*` tag as the embedded nimbus release; the workflow resolves the
-  binary from `nimbus/nimbus/releases/download/<same-tag>/...`
-- non-release validation runs may float to Nimbus's latest published release,
-  but they do not publish immutable artifacts
+- `nimbus/nimbus` `v*` releases build the Linux arm64 Nimbus binary, check out
+  this repository at `MACHINE_OS_SOURCE_REF`, run the checked-in build and OCI
+  packaging scripts, and upload a staged machine-os bundle inside the Nimbus
+  workflow run
+- after the host `nimbus/nimbus` release target matrix passes, the caller
+  dispatches this repository's `publish.yml` workflow and passes the source
+  run id, staged artifact name, exact machine-os source revision, release tag,
+  and `ghcr.io/nimbus/machine-os:<tag>` image reference
+- `publish.yml` runs inside `nimbus/machine-os`, downloads the staged bundle
+  with a narrowly scoped GitHub App token, and uses this repository's
+  `github.token` for GHCR publishing, GitHub Release mutation, and
+  attestations so the package is linked to this repository
+- standalone `nimbus/machine-os` `v*` tags and manual `build.yml` runs are
+  validation lanes only; they may float to Nimbus's latest published release
+  when no explicit `nimbus_version` is provided, and they do not publish
+  immutable artifacts
 
 Published OCI metadata includes:
 
-- `org.opencontainers.image.source=https://github.com/nimbus/nimbus-machine-os`
+- `org.opencontainers.image.source=https://github.com/nimbus/machine-os`
 - `org.opencontainers.image.revision=<machine-os source revision>`
 - `io.nimbus.machine.attestation.repository=<repo that owns the attestation>`
 - `io.nimbus.machine.nimbus.version=<embedded nimbus tag>`
@@ -124,7 +123,7 @@ Published OCI metadata includes:
 Promotion into the Nimbus macOS default must pin the digest reference recorded
 in `machine-image-reference.txt`, not only the version tag.
 
-Triggered by pushes to main (path-filtered), `v*` tags, `workflow_call`, and
+Triggered by pushes to main (path-filtered), `v*` tags, and
 `workflow_dispatch`.
 
 ## License

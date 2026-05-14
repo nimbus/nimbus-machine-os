@@ -153,11 +153,11 @@ gzip -dc "${output_dir}/nimbus-machine-os-fedora-bootc-proof.raw.gz" >/dev/null
 
 bash "${repo_root}/scripts/package-oci.sh" \
   --build-output-dir "${output_dir}" \
-  --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:fedora-bootc-proof \
+  --image-reference docker://ghcr.io/nimbus/machine-os:fedora-bootc-proof \
   --layout-dir "${layout_dir}" \
   --arch arm64 \
-  --source-repository-url https://github.com/nimbus/nimbus-machine-os \
-  --attestation-repository nimbus/nimbus-machine-os
+  --source-repository-url https://github.com/nimbus/machine-os \
+  --attestation-repository nimbus/machine-os
 
 grep -F '"disktype":"applehv"' "${layout_dir}/index.json" >/dev/null
 grep -F 'disk_type=applehv' "${layout_dir}/summary.txt" >/dev/null

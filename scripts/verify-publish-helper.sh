@@ -16,12 +16,12 @@ EOF
 layout_dir="${temp_dir}/oci-layout"
 bash "${repo_root}/scripts/package-oci.sh" \
   --raw-disk "${raw_disk_path}" \
-  --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:latest \
+  --image-reference docker://ghcr.io/nimbus/machine-os:latest \
   --layout-dir "${layout_dir}" \
   --arch arm64 \
-  --source-repository-url https://github.com/nimbus/nimbus-machine-os \
+  --source-repository-url https://github.com/nimbus/machine-os \
   --source-revision fedcba987654 \
-  --attestation-repository nimbus/nimbus-machine-os \
+  --attestation-repository nimbus/machine-os \
   --nimbus-version v9.9.9
 
 mkdir -p "${temp_dir}/bin"
@@ -52,35 +52,35 @@ NIMBUS_MACHINE_OS_REGISTRY_PASSWORD=secret \
 bash "${repo_root}/scripts/publish.sh" \
   --layout-dir "${layout_dir}" \
   --build-output-dir "${build_output_dir}" \
-  --image-reference docker://ghcr.io/nimbus/nimbus-machine-os:latest \
-  --additional-reference docker://ghcr.io/nimbus/nimbus-machine-os:next \
+  --image-reference docker://ghcr.io/nimbus/machine-os:latest \
+  --additional-reference docker://ghcr.io/nimbus/machine-os:next \
   --release-dir "${release_dir}"
 
 grep -F -- '--dest-creds nimbus:secret' "${temp_dir}/skopeo.log" >/dev/null
 grep -F -- "oci:${layout_dir}:latest" "${temp_dir}/skopeo.log" >/dev/null
-grep -F -- 'docker://ghcr.io/nimbus/nimbus-machine-os:latest' "${temp_dir}/skopeo.log" >/dev/null
-grep -F -- 'docker://ghcr.io/nimbus/nimbus-machine-os:next' "${temp_dir}/skopeo.log" >/dev/null
+grep -F -- 'docker://ghcr.io/nimbus/machine-os:latest' "${temp_dir}/skopeo.log" >/dev/null
+grep -F -- 'docker://ghcr.io/nimbus/machine-os:next' "${temp_dir}/skopeo.log" >/dev/null
 test -f "${release_dir}/oci-layout-summary.txt"
 test -f "${release_dir}/build-summary.txt"
 test -f "${release_dir}/nimbus-machine-os.raw.gz"
 test -f "${release_dir}/nimbus-machine-os.sbom.cdx.json"
 test -f "${release_dir}/checksums.txt"
 test -f "${release_dir}/publish-summary.txt"
-grep -F 'image_reference=docker://ghcr.io/nimbus/nimbus-machine-os:latest' "${release_dir}/publish-summary.txt" >/dev/null
+grep -F 'image_reference=docker://ghcr.io/nimbus/machine-os:latest' "${release_dir}/publish-summary.txt" >/dev/null
 grep -F 'image_digest=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' "${release_dir}/publish-summary.txt" >/dev/null
-grep -F 'image_digest_reference=ghcr.io/nimbus/nimbus-machine-os:latest@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' "${release_dir}/publish-summary.txt" >/dev/null
-grep -F 'additional_references=docker://ghcr.io/nimbus/nimbus-machine-os:next' "${release_dir}/publish-summary.txt" >/dev/null
-grep -F 'published_digests=ghcr.io/nimbus/nimbus-machine-os:latest=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef,ghcr.io/nimbus/nimbus-machine-os:next=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' "${release_dir}/publish-summary.txt" >/dev/null
-grep -F 'source_repository_url=https://github.com/nimbus/nimbus-machine-os' "${release_dir}/oci-layout-summary.txt" >/dev/null
+grep -F 'image_digest_reference=ghcr.io/nimbus/machine-os:latest@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' "${release_dir}/publish-summary.txt" >/dev/null
+grep -F 'additional_references=docker://ghcr.io/nimbus/machine-os:next' "${release_dir}/publish-summary.txt" >/dev/null
+grep -F 'published_digests=ghcr.io/nimbus/machine-os:latest=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef,ghcr.io/nimbus/machine-os:next=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' "${release_dir}/publish-summary.txt" >/dev/null
+grep -F 'source_repository_url=https://github.com/nimbus/machine-os' "${release_dir}/oci-layout-summary.txt" >/dev/null
 grep -F 'source_revision=fedcba987654' "${release_dir}/oci-layout-summary.txt" >/dev/null
-grep -F 'attestation_repository=nimbus/nimbus-machine-os' "${release_dir}/oci-layout-summary.txt" >/dev/null
+grep -F 'attestation_repository=nimbus/machine-os' "${release_dir}/oci-layout-summary.txt" >/dev/null
 grep -F 'nimbus_version=v9.9.9' "${release_dir}/oci-layout-summary.txt" >/dev/null
 grep -F 'disk_type=applehv' "${release_dir}/oci-layout-summary.txt" >/dev/null
 test -f "${release_dir}/published-digests.txt"
 test -f "${release_dir}/machine-image-reference.txt"
-grep -F 'ghcr.io/nimbus/nimbus-machine-os:latest=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' "${release_dir}/published-digests.txt" >/dev/null
-grep -F 'tag_reference=ghcr.io/nimbus/nimbus-machine-os:latest' "${release_dir}/machine-image-reference.txt" >/dev/null
-grep -F 'digest_reference=ghcr.io/nimbus/nimbus-machine-os:latest@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' "${release_dir}/machine-image-reference.txt" >/dev/null
+grep -F 'ghcr.io/nimbus/machine-os:latest=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' "${release_dir}/published-digests.txt" >/dev/null
+grep -F 'tag_reference=ghcr.io/nimbus/machine-os:latest' "${release_dir}/machine-image-reference.txt" >/dev/null
+grep -F 'digest_reference=ghcr.io/nimbus/machine-os:latest@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' "${release_dir}/machine-image-reference.txt" >/dev/null
 grep -F 'publish-summary.txt' "${release_dir}/checksums.txt" >/dev/null
 grep -F 'published-digests.txt' "${release_dir}/checksums.txt" >/dev/null
 grep -F 'machine-image-reference.txt' "${release_dir}/checksums.txt" >/dev/null

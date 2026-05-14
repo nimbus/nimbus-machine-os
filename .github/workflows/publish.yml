@@ -41,6 +41,10 @@ on:
         description: "Immutable destination image reference for the packaged machine artifact"
         required: true
         type: string
+      machine_os_source_revision:
+        description: "Exact machine-os commit that produced the staged bundle"
+        required: true
+        type: string
       create_release:
         description: "Create or update a GitHub release in the machine-os repo"
         required: false
@@ -72,7 +76,8 @@ jobs:
       - name: Check out machine-os repository
         uses: actions/checkout@v6
         with:
-          repository: nimbus/nimbus-machine-os
+          repository: nimbus/machine-os
+          ref: ${{ inputs.machine_os_source_revision }}
 
       - name: Initialize publish directories
         run: |
@@ -128,17 +133,17 @@ jobs:
           MACHINE_OS_RELEASE_APP_PRIVATE_KEY: ${{ secrets.MACHINE_OS_RELEASE_APP_PRIVATE_KEY }}
         run: |
           if [[ -z "${MACHINE_OS_RELEASE_APP_ID}" ]]; then
-            echo "MACHINE_OS_RELEASE_APP_ID must be configured in nimbus-machine-os so this workflow can mint a source-repo artifact token." >&2
+            echo "MACHINE_OS_RELEASE_APP_ID must be configured in machine-os so this workflow can mint a source-repo artifact token." >&2
             exit 1
           fi
           if [[ -z "${MACHINE_OS_RELEASE_APP_PRIVATE_KEY}" ]]; then
-            echo "MACHINE_OS_RELEASE_APP_PRIVATE_KEY must be configured in nimbus-machine-os so this workflow can mint a source-repo artifact token." >&2
+            echo "MACHINE_OS_RELEASE_APP_PRIVATE_KEY must be configured in machine-os so this workflow can mint a source-repo artifact token." >&2
             exit 1
           fi
 
       - name: Create source-repo artifact token
         id: source_repo_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.MACHINE_OS_RELEASE_APP_ID }}
           private-key: ${{ secrets.MACHINE_OS_RELEASE_APP_PRIVATE_KEY }}
@@ -169,6 +174,11 @@ jobs:
           test -f "${LAYOUT_DIR}/summary.txt"
           test -f "${LAYOUT_DIR}/index.json"
           test -d "${LAYOUT_DIR}/blobs/sha256"
+          staged_revision="$(awk -F= '$1 == "source_revision" { print substr($0, length($1) + 2) }' "${BUILD_OUTPUT_DIR}/summary.txt" | tail -n 1)"
+          if [[ "${staged_revision}" != "${{ inputs.machine_os_source_revision }}" ]]; then
+            echo "staged source revision ${staged_revision} did not match expected ${{ inputs.machine_os_source_revision }}" >&2
+            exit 65
+          fi
 
       - name: Publish packaged OCI artifact
         env:
@@ -184,15 +194,19 @@ jobs:
       - name: Prepare GitHub release bundle
         if: steps.release-metadata.outputs.create_release == 'true'
         run: |
+          cp "${BUILD_OUTPUT_DIR}/summary.txt" "${RELEASE_DIR}/build-summary.txt"
+          cp "${LAYOUT_DIR}/summary.txt" "${RELEASE_DIR}/oci-layout-summary.txt"
           primary_digest="$(awk -F= '$1 == "image_digest" { print substr($0, length($1) + 2) }' "${RELEASE_DIR}/publish-summary.txt" | tail -n 1)"
           digest_reference="$(awk -F= '$1 == "image_digest_reference" { print substr($0, length($1) + 2) }' "${RELEASE_DIR}/publish-summary.txt" | tail -n 1)"
+          tag_reference="${{ inputs.image_reference }}"
+          tag_reference="${tag_reference#docker://}"
           if [[ -z "${primary_digest}" || -z "${digest_reference}" ]]; then
             echo "publish-summary.txt must include image_digest and image_digest_reference before release creation" >&2
             exit 65
           fi
 
           cat > "${RELEASE_DIR}/machine-image-reference.txt" <<EOF_RELEASE_REF
-          tag_reference=ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}
+          tag_reference=${tag_reference}
           digest_reference=${digest_reference}
           digest=${primary_digest}
           EOF_RELEASE_REF
@@ -203,10 +217,10 @@ jobs:
           )
 
           cat > "${RELEASE_DIR}/release-notes.md" <<EOF_RELEASE_NOTES
-          nimbus-machine-os release ${{ steps.release-metadata.outputs.release_tag }}
+          machine-os release ${{ steps.release-metadata.outputs.release_tag }}
 
           OCI image:
-          - tag: \`ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}\`
+          - tag: \`${tag_reference}\`
           - digest: \`${digest_reference}\`
 
           Source nimbus release:
@@ -218,6 +232,8 @@ jobs:
           Included assets:
           - \`nimbus-machine-os.raw.gz\`
           - \`nimbus-machine-os.sbom.cdx.json\`
+          - \`build-summary.txt\`
+          - \`oci-layout-summary.txt\`
           - \`checksums.txt\`
           - \`publish-summary.txt\`
           - \`published-digests.txt\`
@@ -230,11 +246,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           release_tag='${{ steps.release-metadata.outputs.release_tag }}'
-          release_repository='nimbus/nimbus-machine-os'
+          release_repository='nimbus/machine-os'
           release_target_sha="$(git rev-parse HEAD)"
           assets=(
             "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz"
             "${BUILD_OUTPUT_DIR}/nimbus-machine-os.sbom.cdx.json"
+            "${RELEASE_DIR}/build-summary.txt"
+            "${RELEASE_DIR}/oci-layout-summary.txt"
             "${RELEASE_DIR}/checksums.txt"
             "${RELEASE_DIR}/publish-summary.txt"
             "${RELEASE_DIR}/published-digests.txt"
@@ -262,16 +280,23 @@ jobs:
           subject-path: |
             ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.raw.gz
             ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.sbom.cdx.json
+            ${{ env.RELEASE_DIR }}/build-summary.txt
+            ${{ env.RELEASE_DIR }}/oci-layout-summary.txt
             ${{ env.RELEASE_DIR }}/checksums.txt
+            ${{ env.RELEASE_DIR }}/publish-summary.txt
             ${{ env.RELEASE_DIR }}/published-digests.txt
             ${{ env.RELEASE_DIR }}/machine-image-reference.txt
 
       - name: Upload publish bundle
         uses: actions/upload-artifact@v7
         with:
-          name: nimbus-machine-os-arm64-publish
+          name: machine-os-arm64-release
           if-no-files-found: error
           path: |
+            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.raw.gz
+            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.sbom.cdx.json
+            ${{ env.RELEASE_DIR }}/build-summary.txt
+            ${{ env.RELEASE_DIR }}/oci-layout-summary.txt
             ${{ env.RELEASE_DIR }}/publish-summary.txt
             ${{ env.RELEASE_DIR }}/published-digests.txt
             ${{ env.RELEASE_DIR }}/machine-image-reference.txt
