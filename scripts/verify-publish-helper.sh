@@ -89,4 +89,13 @@ if grep -F 'disk_type=raw' "${release_dir}/oci-layout-summary.txt" >/dev/null; t
   exit 1
 fi
 
+workflow_path="${repo_root}/.github/workflows/publish.yml"
+grep -F 'cp "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz" "${RELEASE_DIR}/nimbus-machine-os.raw.gz"' "${workflow_path}" >/dev/null
+grep -F 'cp "${BUILD_OUTPUT_DIR}/nimbus-machine-os.sbom.cdx.json" "${RELEASE_DIR}/nimbus-machine-os.sbom.cdx.json"' "${workflow_path}" >/dev/null
+grep -F 'path: ${{ env.RELEASE_DIR }}/*' "${workflow_path}" >/dev/null
+if grep -F '${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.raw.gz' "${workflow_path}" >/dev/null; then
+  echo "publish workflow must upload the hydrated release directory, not raw assets from build-output" >&2
+  exit 1
+fi
+
 printf 'verified nimbus machine-os publish wrapper\n'

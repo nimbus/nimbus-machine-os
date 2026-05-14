@@ -194,6 +194,8 @@ jobs:
       - name: Prepare GitHub release bundle
         if: steps.release-metadata.outputs.create_release == 'true'
         run: |
+          cp "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz" "${RELEASE_DIR}/nimbus-machine-os.raw.gz"
+          cp "${BUILD_OUTPUT_DIR}/nimbus-machine-os.sbom.cdx.json" "${RELEASE_DIR}/nimbus-machine-os.sbom.cdx.json"
           cp "${BUILD_OUTPUT_DIR}/summary.txt" "${RELEASE_DIR}/build-summary.txt"
           cp "${LAYOUT_DIR}/summary.txt" "${RELEASE_DIR}/oci-layout-summary.txt"
           primary_digest="$(awk -F= '$1 == "image_digest" { print substr($0, length($1) + 2) }' "${RELEASE_DIR}/publish-summary.txt" | tail -n 1)"
@@ -249,8 +251,8 @@ jobs:
           release_repository='nimbus/machine-os'
           release_target_sha="$(git rev-parse HEAD)"
           assets=(
-            "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz"
-            "${BUILD_OUTPUT_DIR}/nimbus-machine-os.sbom.cdx.json"
+            "${RELEASE_DIR}/nimbus-machine-os.raw.gz"
+            "${RELEASE_DIR}/nimbus-machine-os.sbom.cdx.json"
             "${RELEASE_DIR}/build-summary.txt"
             "${RELEASE_DIR}/oci-layout-summary.txt"
             "${RELEASE_DIR}/checksums.txt"
@@ -278,8 +280,8 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: |
-            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.raw.gz
-            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.sbom.cdx.json
+            ${{ env.RELEASE_DIR }}/nimbus-machine-os.raw.gz
+            ${{ env.RELEASE_DIR }}/nimbus-machine-os.sbom.cdx.json
             ${{ env.RELEASE_DIR }}/build-summary.txt
             ${{ env.RELEASE_DIR }}/oci-layout-summary.txt
             ${{ env.RELEASE_DIR }}/checksums.txt
@@ -292,13 +294,5 @@ jobs:
         with:
           name: machine-os-arm64-release
           if-no-files-found: error
-          path: |
-            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.raw.gz
-            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.sbom.cdx.json
-            ${{ env.RELEASE_DIR }}/build-summary.txt
-            ${{ env.RELEASE_DIR }}/oci-layout-summary.txt
-            ${{ env.RELEASE_DIR }}/publish-summary.txt
-            ${{ env.RELEASE_DIR }}/published-digests.txt
-            ${{ env.RELEASE_DIR }}/machine-image-reference.txt
-            ${{ env.RELEASE_DIR }}/checksums.txt
+          path: ${{ env.RELEASE_DIR }}/*
           compression-level: 0
