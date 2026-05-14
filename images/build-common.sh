@@ -10,6 +10,7 @@ mkdir -p \
   /etc/systemd/system/local-fs.target.wants \
   /etc/systemd/system/multi-user.target.wants \
   /etc/systemd/system/sockets.target.wants \
+  /usr/lib/systemd/system/bootloader-update.service.d \
   /etc/systemd/system/user@.service.d \
   /etc/sysctl.d \
   /usr/lib/systemd/system \
@@ -135,6 +136,27 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
+cat >/usr/lib/systemd/system/nimbus-boot-restorecon.service <<'EOF'
+[Unit]
+Description=Nimbus Boot State SELinux Relabel
+RequiresMountsFor=/boot
+Before=bootloader-update.service
+ConditionPathExists=/boot/bootupd-state.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sh -ceu 'mount -o remount,rw /boot; trap "mount -o remount,ro /boot" EXIT; restorecon /boot/bootupd-state.json'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat >/usr/lib/systemd/system/bootloader-update.service.d/10-nimbus-restorecon.conf <<'EOF'
+[Unit]
+Wants=nimbus-boot-restorecon.service
+After=nimbus-boot-restorecon.service
+EOF
+
 dnf install --best -y \
   aardvark-dns \
   buildah \
@@ -163,7 +185,20 @@ cat >/usr/share/selinux/packages/nimbus-machine-api.cil <<'EOF'
 )
 EOF
 
+cat >/usr/share/selinux/packages/nimbus-bootupd-fedora-base.cil <<'EOF'
+(block nimbus_bootupd_fedora_base
+  (allow bootupd_t mount_var_run_t (dir (search)))
+  (allow bootupd_t passwd_file_t (file (getattr open read)))
+  (allow bootupd_t systemd_userdbd_runtime_t (dir (getattr open read search)))
+  (allow bootupd_t systemd_userdbd_runtime_t (lnk_file (getattr read)))
+  (allow bootupd_t systemd_userdbd_runtime_t (sock_file (getattr write)))
+  (allow bootupd_t systemd_userdbd_t (unix_stream_socket (connectto)))
+  (allow bootupd_t systemd_homed_t (unix_stream_socket (connectto)))
+)
+EOF
+
 semodule -i /usr/share/selinux/packages/nimbus-machine-api.cil
+semodule -i /usr/share/selinux/packages/nimbus-bootupd-fedora-base.cil
 
 if command -v systemd-sysusers >/dev/null 2>&1; then
   systemd-sysusers /usr/lib/sysusers.d/nimbus-machine.conf
@@ -187,6 +222,8 @@ ln -fs /usr/lib/systemd/system/nimbus.socket \
   /etc/systemd/system/sockets.target.wants/nimbus.socket
 ln -fs /usr/lib/systemd/system/nimbus-machine-config.service \
   /etc/systemd/system/multi-user.target.wants/nimbus-machine-config.service
+ln -fs /usr/lib/systemd/system/nimbus-boot-restorecon.service \
+  /etc/systemd/system/multi-user.target.wants/nimbus-boot-restorecon.service
 
 if [[ -L /usr/local && "$(readlink /usr/local)" =~ ^(\.\./)?var/usrlocal$ ]]; then
   mkdir -p /var/usrlocal/bin

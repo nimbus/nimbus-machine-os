@@ -22,11 +22,13 @@ grep -F 'u nimbus - "Nimbus machine administrator" /var/lib/nimbus /bin/bash' "$
 grep -F '/etc/systemd/system/local-fs.target.wants' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F '/etc/systemd/system/multi-user.target.wants' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F '/etc/systemd/system/sockets.target.wants' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F '/usr/lib/systemd/system/bootloader-update.service.d' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F '/usr/lib/systemd/system/nimbus.socket' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F '/usr/lib/systemd/system/nimbus.service' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F '/usr/share/selinux/packages' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F '/usr/lib/systemd/system/run-nimbus\x2dmachine\x2dconfig.mount' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F '/usr/lib/systemd/system/nimbus-machine-config.service' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F '/usr/lib/systemd/system/nimbus-boot-restorecon.service' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'WantedBy=sockets.target' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'ExecStartPost=/usr/bin/chcon -t container_var_run_t /run/nimbus/nimbus.sock' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'Requires=nimbus.socket nimbus-machine-config.service' "${recipe_dir}/build-common.sh" >/dev/null
@@ -40,6 +42,14 @@ grep -F 'Where=/run/nimbus-machine-config' "${recipe_dir}/build-common.sh" >/dev
 grep -F 'Type=virtiofs' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'Requires=run-nimbus\x2dmachine\x2dconfig.mount' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'ExecStart=/usr/local/bin/nimbus machine guest-config apply --config-dir /run/nimbus-machine-config' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'bootloader-update.service.d/10-nimbus-restorecon.conf' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'Wants=nimbus-boot-restorecon.service' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'After=nimbus-boot-restorecon.service' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'RequiresMountsFor=/boot' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'Before=bootloader-update.service' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'ConditionPathExists=/boot/bootupd-state.json' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'mount -o remount,rw /boot' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F "restorecon /boot/bootupd-state.json" "${recipe_dir}/build-common.sh" >/dev/null
 ! grep -F 'ConditionPathExists=/run/nimbus-machine-config/machine.json' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'helper_binaries_dir=["/usr/libexec/podman", {append=true}]' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'Delegate=memory pids cpu io' "${recipe_dir}/build-common.sh" >/dev/null
@@ -59,7 +69,14 @@ grep -F 'socat' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'cat >/usr/share/selinux/packages/nimbus-machine-api.cil' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'allow sshd_session_t container_var_run_t' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'allow sshd_session_t container_runtime_t' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'nimbus-bootupd-fedora-base.cil' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'allow bootupd_t mount_var_run_t' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'allow bootupd_t passwd_file_t' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'allow bootupd_t systemd_userdbd_runtime_t' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'allow bootupd_t systemd_userdbd_t' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'allow bootupd_t systemd_homed_t' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'semodule -i /usr/share/selinux/packages/nimbus-machine-api.cil' "${recipe_dir}/build-common.sh" >/dev/null
+grep -F 'semodule -i /usr/share/selinux/packages/nimbus-bootupd-fedora-base.cil' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'dnf remove -y moby-engine containerd runc toolbox docker-cli' "${recipe_dir}/build-common.sh" >/dev/null
 grep -F 'quay.io/centos-bootc/bootc-image-builder@sha256:754fc17718f977313885379e2c779066aba7d15af88fe04b486baec74759f574' "${recipe_dir}/build.sh" >/dev/null
 grep -F 'bootc_image_builder_rootfs=${rootfs}' "${recipe_dir}/build.sh" >/dev/null
@@ -67,8 +84,8 @@ grep -F 'provisioning_contract=bootc-native-no-ignition-primary' "${recipe_dir}/
 grep -F 'admin_user=nimbus' "${recipe_dir}/build.sh" >/dev/null
 grep -F 'rootless_subid=nimbus:100000:65536' "${recipe_dir}/build.sh" >/dev/null
 grep -F 'package_inventory=aardvark-dns,buildah,conmon,containers-common,containers-common-extra,cpp,crun,fuse-overlayfs,gvisor-tap-vsock-gvforwarder,git-core,iproute,netavark,openssh-server,policycoreutils,podman,procps-ng,socat' "${recipe_dir}/build.sh" >/dev/null
-grep -F 'systemd_units=run-nimbus\x2dmachine\x2dconfig.mount,nimbus.socket,nimbus.service,nimbus-machine-config.service,sshd.service' "${recipe_dir}/build.sh" >/dev/null
-grep -F 'selinux_expectation=container-runtime-domain-container-socket-policy-plus-runtime-avc-gate' "${recipe_dir}/build.sh" >/dev/null
+grep -F 'systemd_units=run-nimbus\x2dmachine\x2dconfig.mount,nimbus.socket,nimbus.service,nimbus-machine-config.service,nimbus-boot-restorecon.service,sshd.service' "${recipe_dir}/build.sh" >/dev/null
+grep -F 'selinux_expectation=container-runtime-domain-container-socket-policy-plus-fedora-bootupd-compat-plus-runtime-avc-gate' "${recipe_dir}/build.sh" >/dev/null
 grep -F 'nimbus-machine-os.sbom.cdx.json' "${recipe_dir}/build.sh" >/dev/null
 grep -F 'scripts/write-sbom.sh' "${repo_root}/scripts/write-sbom.sh" >/dev/null
 
@@ -152,8 +169,8 @@ grep -F 'provisioning_contract=bootc-native-no-ignition-primary' "${output_dir}/
 grep -F 'admin_user=nimbus' "${output_dir}/summary.txt" >/dev/null
 grep -F 'rootless_subid=nimbus:100000:65536' "${output_dir}/summary.txt" >/dev/null
 grep -F 'package_inventory=aardvark-dns,buildah,conmon,containers-common,containers-common-extra,cpp,crun,fuse-overlayfs,gvisor-tap-vsock-gvforwarder,git-core,iproute,netavark,openssh-server,policycoreutils,podman,procps-ng,socat' "${output_dir}/summary.txt" >/dev/null
-grep -F 'systemd_units=run-nimbus\x2dmachine\x2dconfig.mount,nimbus.socket,nimbus.service,nimbus-machine-config.service,sshd.service' "${output_dir}/summary.txt" >/dev/null
-grep -F 'selinux_expectation=container-runtime-domain-container-socket-policy-plus-runtime-avc-gate' "${output_dir}/summary.txt" >/dev/null
+grep -F 'systemd_units=run-nimbus\x2dmachine\x2dconfig.mount,nimbus.socket,nimbus.service,nimbus-machine-config.service,nimbus-boot-restorecon.service,sshd.service' "${output_dir}/summary.txt" >/dev/null
+grep -F 'selinux_expectation=container-runtime-domain-container-socket-policy-plus-fedora-bootupd-compat-plus-runtime-avc-gate' "${output_dir}/summary.txt" >/dev/null
 grep -E '^containerfile_sha256=[0-9a-f]{64}$' "${output_dir}/summary.txt" >/dev/null
 grep -E '^build_common_sha256=[0-9a-f]{64}$' "${output_dir}/summary.txt" >/dev/null
 grep -E '^oci_archive_sha256=[0-9a-f]{64}$' "${output_dir}/summary.txt" >/dev/null

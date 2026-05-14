@@ -15,8 +15,10 @@ disk artifact contract that the macOS host selector consumes:
   channel, not Ignition
 - host file sharing: virtiofs
 - SELinux: `nimbus.service` runs in `container_runtime_t`, the machine API
-  socket is relabeled `container_var_run_t`, and the image installs a narrow
-  `nimbus-machine-api` CIL module for the host-forwarded socket path
+  socket is relabeled `container_var_run_t`, the image installs a narrow
+  `nimbus-machine-api` CIL module for the host-forwarded socket path, and it
+  installs a Fedora-base bootupd compatibility module plus a boot-state
+  restorecon service for the observed bootloader-update path
 
 This recipe is for Linux hosts and CI. macOS consumes the published artifact;
 it does not build the guest image locally during normal development.

@@ -49,4 +49,5 @@ bootc-updated `/usr/local/bin/nimbus`, SELinux, virtiofs, forwarded machine
 API, service lifecycle, bootc switch/upgrade/rollback, and recreate. SELinux
 proof includes the baked `container_runtime_t` service domain,
 `container_var_run_t` machine API socket label, narrow `nimbus-machine-api`
-CIL module, and a real guest AVC gate capture before promotion.
+CIL module, Fedora-base bootupd compatibility policy, boot-state restorecon
+service, and a real guest AVC gate capture before promotion.

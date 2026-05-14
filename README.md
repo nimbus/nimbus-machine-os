@@ -25,7 +25,11 @@ The guest image includes:
 - **SELinux policy** — `nimbus.service` runs in the Fedora
   `container_runtime_t` domain, `/run/nimbus/nimbus.sock` is relabeled
   `container_var_run_t`, and a narrow `nimbus-machine-api` CIL module permits
-  the host-forwarded SSH session to connect to that socket
+  the host-forwarded SSH session to connect to that socket. A separate narrow
+  Fedora-base bootupd compatibility module covers the observed `bootupd_t`
+  userdb lookups that Fedora currently ships as a permissive-domain path, and
+  `nimbus-boot-restorecon.service` relabels `/boot/bootupd-state.json` before
+  Fedora's bootloader update service runs.
 - **Provisioning contract** — bootc-native machine config via sysusers,
   tmpfiles, baked units, and the Nimbus machine-config channel; Ignition is
   not part of the target bootc path
@@ -50,12 +54,11 @@ the build, machine-config, macOS boot parity, and bootc lifecycle gates in
 `docs/plans/bootc-machine-default-plan.md` in the main Nimbus repository.
 Promotion evidence must include a real guest audit capture checked with
 `scripts/check-selinux-avcs.sh --audit-log <path>`. The current image recipe
-records `selinux_expectation=container-runtime-domain-container-socket-policy-plus-runtime-avc-gate`;
+records `selinux_expectation=container-runtime-domain-container-socket-policy-plus-fedora-bootupd-compat-plus-runtime-avc-gate`;
 deterministic helper tests only prove the gate parser, not SELinux runtime
-safety. Fedora-base `bootupd`/`lsblk` userdb AVCs are not accepted merely
-because they look upstream-adjacent; promotion still requires a clean audit
-capture, a concrete upstream/Fedora policy disposition, or an explicitly
-approved narrow Nimbus compatibility policy overlay.
+safety. Fedora-base `bootupd`/`lsblk` userdb AVCs are handled only by the
+observed-permission compatibility module above; promotion still requires a
+clean real guest audit capture, and any new or broader AVC remains a blocker.
 
 ## Building locally
 
