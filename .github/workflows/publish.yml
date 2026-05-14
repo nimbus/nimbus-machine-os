@@ -98,7 +98,7 @@ jobs:
           source_owner="${source_repository%%/*}"
           source_repo="${source_repository#*/}"
 
-          if [[ -z "${source_owner}" || -z "${source_repo}" || "${source_owner}" == "${source_repo}" ]]; then
+          if [[ -z "${source_owner}" || -z "${source_repo}" || "${source_repository}" != */* || "${source_repo}" == */* ]]; then
             echo "source_repository must be in OWNER/REPO form; got '${source_repository}'." >&2
             exit 1
           fi
@@ -129,11 +129,11 @@ jobs:
 
       - name: Verify source-artifact app credentials
         env:
-          MACHINE_OS_RELEASE_APP_ID: ${{ vars.MACHINE_OS_RELEASE_APP_ID }}
+          MACHINE_OS_RELEASE_APP_CLIENT_ID: ${{ vars.MACHINE_OS_RELEASE_APP_CLIENT_ID }}
           MACHINE_OS_RELEASE_APP_PRIVATE_KEY: ${{ secrets.MACHINE_OS_RELEASE_APP_PRIVATE_KEY }}
         run: |
-          if [[ -z "${MACHINE_OS_RELEASE_APP_ID}" ]]; then
-            echo "MACHINE_OS_RELEASE_APP_ID must be configured in machine-os so this workflow can mint a source-repo artifact token." >&2
+          if [[ -z "${MACHINE_OS_RELEASE_APP_CLIENT_ID}" ]]; then
+            echo "MACHINE_OS_RELEASE_APP_CLIENT_ID must be configured in machine-os so this workflow can mint a source-repo artifact token." >&2
             exit 1
           fi
           if [[ -z "${MACHINE_OS_RELEASE_APP_PRIVATE_KEY}" ]]; then
@@ -143,9 +143,9 @@ jobs:
 
       - name: Create source-repo artifact token
         id: source_repo_token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@v3.2.0
         with:
-          app-id: ${{ vars.MACHINE_OS_RELEASE_APP_ID }}
+          client-id: ${{ vars.MACHINE_OS_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.MACHINE_OS_RELEASE_APP_PRIVATE_KEY }}
           owner: ${{ steps.source-repo.outputs.owner }}
           repositories: ${{ steps.source-repo.outputs.repo }}
