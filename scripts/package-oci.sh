@@ -17,7 +17,9 @@ Options:
   --ref-name <name>            Explicit OCI layout ref name (defaults from image reference)
   --arch <arch>                OCI architecture (default: host architecture)
   --os <os>                    OCI operating system (default: linux)
+  --disk-type <type>           Provider disk artifact type (default: applehv)
   --source-repository-url <u>  OCI source repository URL
+  --source-revision <rev>      Source revision embedded in OCI metadata
   --attestation-repository <r> GitHub repo expected to carry build attestations
   --nimbus-version <tag>       Embedded nimbus version tag (for example vX.Y.Z)
   -h, --help                   Show this help
@@ -74,13 +76,17 @@ json_escape() {
 build_annotation_entries() {
   local ref_name="$1"
   local source_repository_url="$2"
-  local attestation_repository="$3"
-  local nimbus_version="$4"
+  local source_revision="$3"
+  local attestation_repository="$4"
+  local nimbus_version="$5"
 
   printf '"org.opencontainers.image.ref.name":"%s","org.opencontainers.image.source":"%s","io.nimbus.machine.attestation.repository":"%s"' \
     "$(json_escape "${ref_name}")" \
     "$(json_escape "${source_repository_url}")" \
     "$(json_escape "${attestation_repository}")"
+  if [[ -n "${source_revision}" ]]; then
+    printf ',"org.opencontainers.image.revision":"%s"' "$(json_escape "${source_revision}")"
+  fi
   if [[ -n "${nimbus_version}" ]]; then
     printf ',"io.nimbus.machine.nimbus.version":"%s"' "$(json_escape "${nimbus_version}")"
   fi
@@ -117,7 +123,9 @@ image_reference=""
 ref_name=""
 oci_arch="$(normalize_arch "${NIMBUS_MACHINE_OS_PACKAGE_TEST_ARCH:-$(uname -m)}")"
 oci_os="linux"
+disk_type="${NIMBUS_MACHINE_OS_DISK_TYPE:-applehv}"
 source_repository_url="${NIMBUS_MACHINE_OS_SOURCE_REPOSITORY_URL:-https://github.com/nimbus/nimbus-machine-os}"
+source_revision="${NIMBUS_MACHINE_OS_SOURCE_REVISION:-}"
 attestation_repository="${NIMBUS_MACHINE_OS_ATTESTATION_REPOSITORY:-nimbus/nimbus-machine-os}"
 nimbus_version="${NIMBUS_MACHINE_OS_VERSION:-}"
 
@@ -155,8 +163,16 @@ while [[ $# -gt 0 ]]; do
       oci_os="${2:-}"
       shift 2
       ;;
+    --disk-type)
+      disk_type="${2:-}"
+      shift 2
+      ;;
     --source-repository-url)
       source_repository_url="${2:-}"
+      shift 2
+      ;;
+    --source-revision)
+      source_revision="${2:-}"
       shift 2
       ;;
     --attestation-repository)
@@ -199,6 +215,15 @@ if [[ -n "${summary_file}" ]]; then
   fi
   if [[ -z "${nimbus_version}" ]]; then
     nimbus_version="$(summary_value "${summary_file}" nimbus_version)"
+    if [[ "${nimbus_version}" == "<unspecified>" ]]; then
+      nimbus_version=""
+    fi
+  fi
+  if [[ -z "${source_revision}" ]]; then
+    source_revision="$(summary_value "${summary_file}" source_revision)"
+    if [[ "${source_revision}" == "<unspecified>" ]]; then
+      source_revision=""
+    fi
   fi
 fi
 
@@ -230,6 +255,10 @@ if [[ -z "${attestation_repository}" ]]; then
   echo "--attestation-repository cannot be empty" >&2
   exit 64
 fi
+if [[ -z "${disk_type}" ]]; then
+  echo "--disk-type cannot be empty" >&2
+  exit 64
+fi
 
 rm -rf "${layout_dir}"
 mkdir -p "${layout_dir}/blobs/sha256"
@@ -248,9 +277,10 @@ trap 'rm -rf "${temp_dir}"' EXIT
 manifest_annotations="$(build_annotation_entries \
   "${ref_name}" \
   "${source_repository_url}" \
+  "${source_revision}" \
   "${attestation_repository}" \
   "${nimbus_version}")"
-index_annotations="$(printf '"disktype":"raw",%s' "${manifest_annotations}")"
+index_annotations="$(printf '"disktype":"%s",%s' "$(json_escape "${disk_type}")" "${manifest_annotations}")"
 
 config_path="${temp_dir}/config.json"
 cat >"${config_path}" <<EOF
@@ -282,7 +312,9 @@ image_reference=${image_reference:-<unspecified>}
 ref_name=${ref_name}
 oci_arch=${oci_arch}
 oci_os=${oci_os}
+disk_type=${disk_type}
 source_repository_url=${source_repository_url}
+source_revision=${source_revision:-<unspecified>}
 attestation_repository=${attestation_repository}
 nimbus_version=${nimbus_version:-<unspecified>}
 layer_media_type=${layer_media_type}

@@ -5,14 +5,14 @@ usage() {
   cat <<'EOF'
 Usage: build.sh --nimbus-binary <path> [options]
 
-Build the Nimbus direct Fedora bootc guest image recipe on Linux.
+Build the direct Fedora bootc Nimbus machine proof image on a Linux host.
 
 Options:
   --nimbus-binary <path>                 Linux nimbus binary to install into the guest
   --nimbus-version <tag>                 Embedded nimbus version tag recorded in summary output
   --source-revision <rev>                Source revision recorded in summary output
   --output-dir <path>                   Output directory (default: ./out)
-  --image-name <reference>              Local OCI tag (default: localhost/nimbus-machine-os:dev)
+  --image-name <reference>              Local OCI tag (default: localhost/nimbus-machine-os-fedora-bootc-proof:dev)
   --fedora-bootc-base-image <reference> Fedora bootc base image
   --bib-image <reference>               bootc-image-builder image
   --rootfs <name>                       bootc-image-builder rootfs (default: ext4)
@@ -23,14 +23,14 @@ EOF
 }
 
 require_linux_root() {
-  local os_name="${NIMBUS_MACHINE_OS_BUILD_TEST_UNAME:-$(uname -s)}"
-  local uid_value="${NIMBUS_MACHINE_OS_BUILD_TEST_UID:-$(id -u)}"
+  local os_name="${NIMBUS_DIRECT_BOOTC_BUILD_TEST_UNAME:-$(uname -s)}"
+  local uid_value="${NIMBUS_DIRECT_BOOTC_BUILD_TEST_UID:-$(id -u)}"
   if [[ "${os_name}" != "Linux" ]]; then
-    echo "build.sh must run on Linux" >&2
+    echo "direct Fedora bootc proof build requires a Linux host" >&2
     exit 1
   fi
   if [[ "${uid_value}" -ne 0 ]]; then
-    echo "build.sh must run as root" >&2
+    echo "direct Fedora bootc proof build requires root" >&2
     exit 1
   fi
 }
@@ -61,7 +61,7 @@ nimbus_binary=""
 nimbus_version=""
 source_revision="${NIMBUS_MACHINE_OS_SOURCE_REVISION:-}"
 output_dir=""
-image_name="localhost/nimbus-machine-os:dev"
+image_name="localhost/nimbus-machine-os-fedora-bootc-proof:dev"
 fedora_bootc_base_image="quay.io/fedora/fedora-bootc@sha256:187d480948fe37a4cc55211b8a594adfc4f85a7d17ac1991331bf98272eb8f94"
 bib_image="${NIMBUS_BIB_IMAGE:-quay.io/centos-bootc/bootc-image-builder@sha256:754fc17718f977313885379e2c779066aba7d15af88fe04b486baec74759f574}"
 rootfs="ext4"
@@ -171,8 +171,7 @@ podman_build_args+=("${context_dir}")
 
 podman "${podman_build_args[@]}"
 
-oci_archive_path="${output_dir}/nimbus-machine-os.ociarchive"
-
+oci_archive_path="${output_dir}/nimbus-machine-os-fedora-bootc-proof.ociarchive"
 podman save --format oci-archive -o "${oci_archive_path}" "${image_name}"
 
 bib_work_dir="${output_dir}/bootc-image-builder"
@@ -201,9 +200,9 @@ if [[ -z "${raw_disk_source_path}" || ! -f "${raw_disk_source_path}" ]]; then
 fi
 
 require_command gzip
-raw_disk_path="${output_dir}/nimbus-machine-os.raw"
+raw_disk_path="${output_dir}/nimbus-machine-os-fedora-bootc-proof.raw"
 mv "${raw_disk_source_path}" "${raw_disk_path}"
-compressed_raw_disk_path="${output_dir}/nimbus-machine-os.raw.gz"
+compressed_raw_disk_path="${output_dir}/nimbus-machine-os-fedora-bootc-proof.raw.gz"
 gzip -c "${raw_disk_path}" >"${compressed_raw_disk_path}"
 raw_disk_sha256="$(sha256_hex "${raw_disk_path}")"
 compressed_raw_disk_sha256="$(sha256_hex "${compressed_raw_disk_path}")"
@@ -221,8 +220,8 @@ fedora_bootc_base_image=${fedora_bootc_base_image}
 bib_image=${bib_image}
 bootc_image_builder_type=raw
 bootc_image_builder_rootfs=${rootfs}
-provisioning_contract=bootc-native-no-ignition-primary
-provisioning_mechanisms=sysusers.d,tmpfiles.d,baked-systemd-units,machine-config-channel
+provisioning_contract=bootc-native-no-ignition-proof-required
+provisioning_mechanisms=sysusers.d,tmpfiles.d,baked-systemd-units,machine-config-channel,systemd-credentials-or-guest-agent
 admin_user=nimbus
 rootless_subid=nimbus:100000:65536
 package_inventory=aardvark-dns,buildah,conmon,containers-common,containers-common-extra,cpp,crun,fuse-overlayfs,gvisor-tap-vsock-gvforwarder,git-core,iproute,netavark,openssh-server,policycoreutils,podman,procps-ng,socat
@@ -246,14 +245,4 @@ compressed_raw_disk_path=${compressed_raw_disk_path}
 compressed_raw_disk_sha256=${compressed_raw_disk_sha256}
 EOF
 
-sbom_path="${output_dir}/nimbus-machine-os.sbom.cdx.json"
-bash "${script_dir}/../scripts/write-sbom.sh" \
-  --build-summary "${output_dir}/summary.txt" \
-  --output "${sbom_path}" >/dev/null
-sbom_sha256="$(sha256_hex "${sbom_path}")"
-cat >>"${output_dir}/summary.txt" <<EOF
-sbom_path=${sbom_path}
-sbom_sha256=${sbom_sha256}
-EOF
-
-printf 'built Nimbus direct Fedora bootc machine image at %s\n' "${output_dir}"
+printf 'built direct Fedora bootc proof image at %s\n' "${output_dir}"

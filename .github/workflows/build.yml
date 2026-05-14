@@ -10,6 +10,7 @@ on:
   pull_request:
     paths:
       - "images/**"
+      - "proofs/**"
       - "scripts/**"
       - ".github/workflows/build.yml"
   push:
@@ -19,6 +20,7 @@ on:
       - "v*"
     paths:
       - "images/**"
+      - "proofs/**"
       - "scripts/**"
       - ".github/workflows/build.yml"
   workflow_dispatch:
@@ -130,22 +132,30 @@ jobs:
       - name: Verify helper syntax and help entrypoints
         run: |
           bash -n scripts/build.sh
+          bash -n scripts/check-selinux-avcs.sh
           bash -n scripts/package-oci.sh
           bash -n scripts/publish.sh
+          bash -n scripts/write-sbom.sh
           bash -n scripts/verify-recipe.sh
           bash -n scripts/verify-build-helper.sh
+          bash -n scripts/verify-fedora-bootc-proof.sh
           bash -n scripts/verify-oci-layout-helper.sh
           bash -n scripts/verify-publish-helper.sh
+          bash -n scripts/verify-selinux-avc-gate.sh
           bash scripts/build.sh --help
+          bash scripts/check-selinux-avcs.sh --help
           bash scripts/package-oci.sh --help
           bash scripts/publish.sh --help
+          bash scripts/write-sbom.sh --help
 
       - name: Verify deterministic helper lanes
         run: |
           bash scripts/verify-recipe.sh
           bash scripts/verify-build-helper.sh
+          bash scripts/verify-fedora-bootc-proof.sh
           bash scripts/verify-oci-layout-helper.sh
           bash scripts/verify-publish-helper.sh
+          bash scripts/verify-selinux-avc-gate.sh
 
   build-arm64:
     name: Build machine-os (linux arm64)
@@ -234,7 +244,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ runner.temp }}/image-cache
-          key: base-image-arm64-${{ hashFiles('images/Containerfile', 'images/build-common.sh') }}
+          key: base-image-arm64-${{ hashFiles('images/Containerfile', 'images/build-common.sh', 'images/build.sh') }}
           restore-keys: |
             base-image-arm64-
 
@@ -338,8 +348,8 @@ jobs:
 
       - name: Pull base images
         run: |
-          sudo podman pull quay.io/fedora/fedora-bootc:42 &
-          sudo podman pull quay.io/centos-bootc/bootc-image-builder:latest &
+          sudo podman pull quay.io/fedora/fedora-bootc@sha256:187d480948fe37a4cc55211b8a594adfc4f85a7d17ac1991331bf98272eb8f94 &
+          sudo podman pull quay.io/centos-bootc/bootc-image-builder@sha256:754fc17718f977313885379e2c779066aba7d15af88fe04b486baec74759f574 &
           wait
 
       - name: Build guest image
@@ -347,6 +357,7 @@ jobs:
           sudo bash scripts/build.sh \
             --nimbus-binary "${nimbus_binary}" \
             --nimbus-version "${{ steps.nimbus-version.outputs.tag }}" \
+            --source-revision "${GITHUB_SHA}" \
             --output-dir "${BUILD_OUTPUT_DIR}"
           sudo chown -R "$(id -u):$(id -g)" \
             "${BUILD_OUTPUT_DIR}"
@@ -356,7 +367,7 @@ jobs:
         run: |
           cache_dir="${RUNNER_TEMP}/image-cache"
           mkdir -p "${cache_dir}"
-          sudo podman save -o "${cache_dir}/bootc-base.tar" quay.io/fedora/fedora-bootc:42
+          sudo podman save -o "${cache_dir}/fedora-bootc-base.tar" quay.io/fedora/fedora-bootc@sha256:187d480948fe37a4cc55211b8a594adfc4f85a7d17ac1991331bf98272eb8f94
           sudo chown -R "$(id -u):$(id -g)" "${cache_dir}"
 
       - name: Package raw-disk OCI layout
@@ -367,6 +378,7 @@ jobs:
             --layout-dir "${LAYOUT_DIR}" \
             --arch arm64 \
             --source-repository-url "https://github.com/nimbus/nimbus-machine-os" \
+            --source-revision "${GITHUB_SHA}" \
             --attestation-repository "${{ github.repository }}" \
             --nimbus-version "${{ steps.nimbus-version.outputs.tag }}"
 
@@ -379,6 +391,7 @@ jobs:
 
           cp "${BUILD_OUTPUT_DIR}/summary.txt" "${stage_root}/build-output/"
           cp "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz" "${stage_root}/build-output/"
+          cp "${BUILD_OUTPUT_DIR}/nimbus-machine-os.sbom.cdx.json" "${stage_root}/build-output/"
           cp -R "${LAYOUT_DIR}/." "${stage_root}/layout/"
 
       - name: Upload staged machine-os bundle
@@ -405,23 +418,40 @@ jobs:
       - name: Prepare GitHub release bundle
         if: steps.release-metadata.outputs.create_release == 'true'
         run: |
+          primary_digest="$(awk -F= '$1 == "image_digest" { print substr($0, length($1) + 2) }' "${RELEASE_DIR}/publish-summary.txt" | tail -n 1)"
+          digest_reference="$(awk -F= '$1 == "image_digest_reference" { print substr($0, length($1) + 2) }' "${RELEASE_DIR}/publish-summary.txt" | tail -n 1)"
+          if [[ -z "${primary_digest}" || -z "${digest_reference}" ]]; then
+            echo "publish-summary.txt must include image_digest and image_digest_reference before release creation" >&2
+            exit 65
+          fi
+
           cat > "${RELEASE_DIR}/machine-image-reference.txt" <<EOF
-          ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}
+          tag_reference=ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}
+          digest_reference=${digest_reference}
+          digest=${primary_digest}
           EOF
+          (
+            cd "${RELEASE_DIR}"
+            rm -f checksums.txt
+            sha256sum ./* >checksums.txt
+          )
 
           cat > "${RELEASE_DIR}/release-notes.md" <<EOF
           nimbus-machine-os release ${{ steps.release-metadata.outputs.release_tag }}
 
           OCI image:
-          - \`ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}\`
+          - tag: \`ghcr.io/nimbus/nimbus-machine-os:${{ steps.release-metadata.outputs.release_tag }}\`
+          - digest: \`${digest_reference}\`
 
           Source nimbus release:
           - \`https://github.com/nimbus/nimbus/releases/tag/${{ steps.nimbus-version.outputs.tag }}\`
 
           Included assets:
           - \`nimbus-machine-os.raw.gz\`
+          - \`nimbus-machine-os.sbom.cdx.json\`
           - \`checksums.txt\`
           - \`publish-summary.txt\`
+          - \`published-digests.txt\`
           - \`machine-image-reference.txt\`
           EOF
 
@@ -435,8 +465,10 @@ jobs:
           release_target_sha="$(git rev-parse HEAD)"
           assets=(
             "${BUILD_OUTPUT_DIR}/nimbus-machine-os.raw.gz"
+            "${BUILD_OUTPUT_DIR}/nimbus-machine-os.sbom.cdx.json"
             "${RELEASE_DIR}/checksums.txt"
             "${RELEASE_DIR}/publish-summary.txt"
+            "${RELEASE_DIR}/published-digests.txt"
             "${RELEASE_DIR}/machine-image-reference.txt"
           )
 
@@ -462,7 +494,10 @@ jobs:
           subject-path: |
             ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.ociarchive
             ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.raw.gz
+            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.sbom.cdx.json
             ${{ env.RELEASE_DIR }}/checksums.txt
+            ${{ env.RELEASE_DIR }}/published-digests.txt
+            ${{ env.RELEASE_DIR }}/machine-image-reference.txt
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
@@ -473,6 +508,7 @@ jobs:
             ${{ env.BUILD_OUTPUT_DIR }}/summary.txt
             ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.ociarchive
             ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.raw.gz
+            ${{ env.BUILD_OUTPUT_DIR }}/nimbus-machine-os.sbom.cdx.json
             ${{ env.LAYOUT_DIR }}/summary.txt
             ${{ env.LAYOUT_DIR }}/index.json
           compression-level: 0
@@ -485,5 +521,7 @@ jobs:
           if-no-files-found: error
           path: |
             ${{ env.RELEASE_DIR }}/publish-summary.txt
+            ${{ env.RELEASE_DIR }}/published-digests.txt
+            ${{ env.RELEASE_DIR }}/machine-image-reference.txt
             ${{ env.RELEASE_DIR }}/checksums.txt
           compression-level: 0

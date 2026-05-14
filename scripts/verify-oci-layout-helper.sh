@@ -15,21 +15,29 @@ bash "${repo_root}/scripts/package-oci.sh" \
   --layout-dir "${layout_dir}" \
   --arch arm64 \
   --source-repository-url https://github.com/nimbus/nimbus-machine-os \
+  --source-revision abc123def456 \
   --attestation-repository nimbus/nimbus \
   --nimbus-version v1.2.3
 
 test -f "${layout_dir}/oci-layout"
 test -f "${layout_dir}/index.json"
 test -f "${layout_dir}/summary.txt"
-grep -F '"disktype":"raw"' "${layout_dir}/index.json" >/dev/null
+grep -F '"disktype":"applehv"' "${layout_dir}/index.json" >/dev/null
+if grep -F '"disktype":"raw"' "${layout_dir}/index.json" >/dev/null; then
+  echo "macOS OCI artifact must use disktype=applehv, not raw" >&2
+  exit 1
+fi
 grep -F '"org.opencontainers.image.ref.name":"v1.2.3"' "${layout_dir}/index.json" >/dev/null
 grep -F '"org.opencontainers.image.source":"https://github.com/nimbus/nimbus-machine-os"' "${layout_dir}/index.json" >/dev/null
+grep -F '"org.opencontainers.image.revision":"abc123def456"' "${layout_dir}/index.json" >/dev/null
 grep -F '"io.nimbus.machine.attestation.repository":"nimbus/nimbus"' "${layout_dir}/index.json" >/dev/null
 grep -F '"io.nimbus.machine.nimbus.version":"v1.2.3"' "${layout_dir}/index.json" >/dev/null
 grep -F 'layer_media_type=application/vnd.nimbus.machine.disk.layer.v1.raw+gzip' "${layout_dir}/summary.txt" >/dev/null
+grep -F 'disk_type=applehv' "${layout_dir}/summary.txt" >/dev/null
 grep -F 'oci_arch=arm64' "${layout_dir}/summary.txt" >/dev/null
 grep -F 'image_reference=docker://ghcr.io/nimbus/nimbus-machine-os:v1.2.3' "${layout_dir}/summary.txt" >/dev/null
 grep -F 'source_repository_url=https://github.com/nimbus/nimbus-machine-os' "${layout_dir}/summary.txt" >/dev/null
+grep -F 'source_revision=abc123def456' "${layout_dir}/summary.txt" >/dev/null
 grep -F 'attestation_repository=nimbus/nimbus' "${layout_dir}/summary.txt" >/dev/null
 grep -F 'nimbus_version=v1.2.3' "${layout_dir}/summary.txt" >/dev/null
 

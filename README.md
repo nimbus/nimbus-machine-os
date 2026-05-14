@@ -1,36 +1,68 @@
 # nimbus-machine-os
 
-Guest OS image for the nimbus macOS developer machine. Built on Fedora bootc
-with nimbus and container tooling pre-installed.
+Guest OS image for the nimbus macOS developer machine. Built as a
+direct Fedora bootc image with nimbus and container tooling pre-installed.
 
-This is the nimbus equivalent of
-[containers/podman-machine-os](https://github.com/containers/podman-machine-os).
+The current shipped Nimbus macOS default still uses the pinned Podman
+`machine-os` artifact until the bootc-native path passes full parity. This
+repository owns the replacement path: a Nimbus-owned bootc image published as
+a Podman-compatible `disktype=applehv` raw-disk OCI artifact.
 
 ## What's inside
 
 The guest image includes:
 
-- **nimbus** — the nimbus server binary (from `nimbus/nimbus` releases)
-- **Container tooling** — crun, conmon, buildah, containers-common, netavark,
-  aardvark-dns, fuse-overlayfs, catatonit, passt
-- **System services** — openssh-server, socat, cloud-init
+- **Nimbus guest control plane** — the Linux arm64 `nimbus` binary from the
+  matching `nimbus/nimbus` release, installed at `/usr/local/bin/nimbus` to
+  run `nimbus machine api` and `nimbus machine guest-config apply`. This
+  versioned control-plane binary is baked into the bootc image rather than
+  synced by the host during normal startup.
+- **Container tooling** — podman, crun, conmon, buildah, containers-common,
+  netavark, aardvark-dns, fuse-overlayfs
+- **System services** — openssh-server, socat, systemd user delegation, and
+  baked `nimbus.socket`, `nimbus.service`, and
+  `nimbus-machine-config.service`
+- **SELinux policy** — `nimbus.service` runs in the Fedora
+  `container_runtime_t` domain, `/run/nimbus/nimbus.sock` is relabeled
+  `container_var_run_t`, and a narrow `nimbus-machine-api` CIL module permits
+  the host-forwarded SSH session to connect to that socket
+- **Provisioning contract** — bootc-native machine config via sysusers,
+  tmpfiles, baked units, and the Nimbus machine-config channel; Ignition is
+  not part of the target bootc path
 
-The image is built from `quay.io/fedora/fedora-bootc:42` and converted to a
-raw disk image via `bootc-image-builder`.
+The image is built from digest-pinned `quay.io/fedora/fedora-bootc:44` and
+converted to a raw disk image via a digest-pinned `bootc-image-builder`.
 
 ## Published artifacts
 
 | Artifact | Location |
 |----------|----------|
-| Raw-disk OCI image | `ghcr.io/nimbus/nimbus-machine-os` |
+| Raw-disk OCI image | `ghcr.io/nimbus/nimbus-machine-os:<tag>` plus a release-recorded digest reference |
+| SBOM | `nimbus-machine-os.sbom.cdx.json` release asset |
+| Checksums and digest evidence | `checksums.txt`, `published-digests.txt`, and `machine-image-reference.txt` release assets |
 | Build provenance | GitHub Attestations (via `actions/attest`) |
+
+## Bootc Promotion Rule
+
+This repository may publish bootc-native artifacts before Nimbus switches the
+macOS default. The host default changes only after the bootc artifact passes
+the build, machine-config, macOS boot parity, and bootc lifecycle gates in
+`docs/plans/bootc-machine-default-plan.md` in the main Nimbus repository.
+Promotion evidence must include a real guest audit capture checked with
+`scripts/check-selinux-avcs.sh --audit-log <path>`. The current image recipe
+records `selinux_expectation=container-runtime-domain-container-socket-policy-plus-runtime-avc-gate`;
+deterministic helper tests only prove the gate parser, not SELinux runtime
+safety. Fedora-base `bootupd`/`lsblk` userdb AVCs are not accepted merely
+because they look upstream-adjacent; promotion still requires a clean audit
+capture, a concrete upstream/Fedora policy disposition, or an explicitly
+approved narrow Nimbus compatibility policy overlay.
 
 ## Building locally
 
 Requires a Linux host with podman and root access:
 
 ```bash
-# Download a nimbus binary first
+# Download the matching nimbus guest control binary first
 curl -fsSL -o /tmp/nimbus_linux_arm64.tar.gz \
   https://github.com/nimbus/nimbus/releases/latest/download/nimbus_linux_arm64.tar.gz
 tar xzf /tmp/nimbus_linux_arm64.tar.gz -C /tmp
@@ -38,12 +70,14 @@ tar xzf /tmp/nimbus_linux_arm64.tar.gz -C /tmp
 sudo bash scripts/build.sh \
   --nimbus-binary /tmp/nimbus \
   --nimbus-version vX.Y.Z \
+  --source-revision "$(git rev-parse HEAD)" \
   --output-dir /tmp/nimbus-machine-os
 ```
 
-`--nimbus-version` is optional for ad hoc local builds, but release and CI
-lanes should pass it so the build summary and packaged OCI metadata record the
-embedded Nimbus version explicitly.
+`--nimbus-version` and `--source-revision` are optional for ad hoc local
+builds, but release and CI lanes should pass them so the build summary and
+packaged OCI metadata record the embedded Nimbus version and source revision
+explicitly.
 
 ## CI
 
@@ -80,8 +114,12 @@ Primary release path:
 Published OCI metadata includes:
 
 - `org.opencontainers.image.source=https://github.com/nimbus/nimbus-machine-os`
+- `org.opencontainers.image.revision=<machine-os source revision>`
 - `io.nimbus.machine.attestation.repository=<repo that owns the attestation>`
 - `io.nimbus.machine.nimbus.version=<embedded nimbus tag>`
+
+Promotion into the Nimbus macOS default must pin the digest reference recorded
+in `machine-image-reference.txt`, not only the version tag.
 
 Triggered by pushes to main (path-filtered), `v*` tags, `workflow_call`, and
 `workflow_dispatch`.

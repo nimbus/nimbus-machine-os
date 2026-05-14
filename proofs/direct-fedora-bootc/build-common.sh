@@ -15,8 +15,6 @@ mkdir -p \
   /usr/lib/systemd/system \
   /usr/lib/sysusers.d \
   /usr/lib/tmpfiles.d \
-  /usr/share/containers/containers.conf.d \
-  /usr/share/containers/registries.conf.d \
   /usr/share/selinux/packages \
   /var/lib/nimbus/control \
   /var/lib/nimbus/data
@@ -33,11 +31,11 @@ cat >/etc/profile.d/docker-host.sh <<'EOF'
 export DOCKER_HOST="unix://$(podman info -f "{{.Host.RemoteSocket.Path}}")"
 EOF
 
-cat >/usr/share/containers/registries.conf.d/999-nimbus-machine.conf <<'EOF'
+cat >/etc/containers/registries.conf.d/999-nimbus-machine.conf <<'EOF'
 unqualified-search-registries=["docker.io"]
 EOF
 
-cat >/usr/share/containers/containers.conf.d/999-nimbus-machine.conf <<'EOF'
+cat >/etc/containers/containers.conf.d/999-nimbus-machine.conf <<'EOF'
 [engine]
 helper_binaries_dir=["/usr/libexec/podman", {append=true}]
 EOF
@@ -144,7 +142,6 @@ dnf install --best -y \
   cpp \
   crun \
   fuse-overlayfs \
-  gvisor-tap-vsock-gvforwarder \
   git-core \
   iproute \
   netavark \

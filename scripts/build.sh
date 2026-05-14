@@ -6,15 +6,19 @@ usage() {
 usage: build.sh --nimbus-binary <path> [options]
 
 Build the nimbus-machine-os guest image on a Linux host using the checked-in
-image recipe and a pre-built Linux nimbus binary.
+direct Fedora bootc image recipe and a pre-built Linux nimbus binary.
 
 Options:
   --nimbus-binary <path>              Linux nimbus binary to install into the guest (required)
   --nimbus-version <tag>              Embedded nimbus version tag recorded in the build summary
+  --source-revision <rev>             Source revision recorded in the build summary
   --output-dir <path>                 Output directory passed through to the image recipe
   --image-name <reference>            OCI tag passed through to the image recipe
-  --fcos-base-image <reference>       Base image passed through to the image recipe
+  --fedora-bootc-base-image <ref>     Fedora bootc base image passed through to the recipe
+  --bib-image <reference>             bootc-image-builder image passed through to the recipe
+  --rootfs <name>                     bootc-image-builder rootfs passed through to the recipe
   --context-dir <path>                Reused staging context passed through to the image recipe
+  --no-cache                          Force a fresh container image build
   -h, --help                          Show this help
 
 Examples:
@@ -34,10 +38,14 @@ require_command() {
 
 nimbus_binary=""
 nimbus_version=""
+source_revision="${NIMBUS_MACHINE_OS_SOURCE_REVISION:-}"
 output_dir=""
 image_name=""
-fcos_base_image=""
+fedora_bootc_base_image=""
+bib_image=""
+rootfs=""
 context_dir=""
+no_cache="${NIMBUS_MACHINE_OS_BUILD_NO_CACHE:-0}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -49,6 +57,10 @@ while [[ $# -gt 0 ]]; do
       nimbus_version="${2:-}"
       shift 2
       ;;
+    --source-revision)
+      source_revision="${2:-}"
+      shift 2
+      ;;
     --output-dir)
       output_dir="${2:-}"
       shift 2
@@ -57,13 +69,25 @@ while [[ $# -gt 0 ]]; do
       image_name="${2:-}"
       shift 2
       ;;
-    --fcos-base-image)
-      fcos_base_image="${2:-}"
+    --fedora-bootc-base-image)
+      fedora_bootc_base_image="${2:-}"
+      shift 2
+      ;;
+    --bib-image)
+      bib_image="${2:-}"
+      shift 2
+      ;;
+    --rootfs)
+      rootfs="${2:-}"
       shift 2
       ;;
     --context-dir)
       context_dir="${2:-}"
       shift 2
+      ;;
+    --no-cache)
+      no_cache=1
+      shift
       ;;
     -h|--help)
       usage
@@ -114,14 +138,26 @@ fi
 if [[ -n "${nimbus_version}" ]]; then
   args+=(--nimbus-version "${nimbus_version}")
 fi
+if [[ -n "${source_revision}" ]]; then
+  args+=(--source-revision "${source_revision}")
+fi
 if [[ -n "${image_name}" ]]; then
   args+=(--image-name "${image_name}")
 fi
-if [[ -n "${fcos_base_image}" ]]; then
-  args+=(--fcos-base-image "${fcos_base_image}")
+if [[ -n "${fedora_bootc_base_image}" ]]; then
+  args+=(--fedora-bootc-base-image "${fedora_bootc_base_image}")
+fi
+if [[ -n "${bib_image}" ]]; then
+  args+=(--bib-image "${bib_image}")
+fi
+if [[ -n "${rootfs}" ]]; then
+  args+=(--rootfs "${rootfs}")
 fi
 if [[ -n "${context_dir}" ]]; then
   args+=(--context-dir "${context_dir}")
+fi
+if [[ "${no_cache}" == "1" || "${no_cache}" == "true" ]]; then
+  args+=(--no-cache)
 fi
 
 bash "${recipe_script}" "${args[@]}"
