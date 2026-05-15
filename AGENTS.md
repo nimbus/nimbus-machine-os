@@ -7,8 +7,10 @@ is a direct Fedora bootc appliance, not a Podman-machine-os-shaped FCOS build.
 
 - Keep `main` as the only long-lived development branch unless a named
   enterprise maintenance line is created.
-- Preserve the public artifact contract: a raw disk packaged as an OCI image
-  with `disktype=applehv` for the macOS provider.
+- Preserve the public macOS artifact contract: a raw disk packaged as an OCI
+  image with `disktype=applehv` for the macOS provider. Future Windows
+  artifacts must use explicit provider selectors such as `wsl` or `hyperv`,
+  not masquerade as AppleHV raw disks.
 - Keep GHCR publishing, GitHub Release mutation, and attestations inside the
   `nimbus/machine-os` repository context.
 - Do not reintroduce Ignition, FCOS-derived recipe structure, or host-side
@@ -29,6 +31,7 @@ deterministic checks that match the touched files:
 bash scripts/verify-recipe.sh
 bash scripts/verify-build-helper.sh
 bash scripts/verify-oci-layout-helper.sh
+bash scripts/verify-provider-artifact-contracts.sh
 bash scripts/verify-publish-helper.sh
 bash scripts/verify-selinux-avc-gate.sh
 ```

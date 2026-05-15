@@ -83,6 +83,7 @@ These deterministic checks can run without a Linux image build:
 bash scripts/verify-recipe.sh
 bash scripts/verify-build-helper.sh
 bash scripts/verify-oci-layout-helper.sh
+bash scripts/verify-provider-artifact-contracts.sh
 bash scripts/verify-publish-helper.sh
 bash scripts/verify-selinux-avc-gate.sh
 ```

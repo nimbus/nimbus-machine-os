@@ -72,6 +72,7 @@ jobs:
           bash -n scripts/verify-recipe.sh
           bash -n scripts/verify-build-helper.sh
           bash -n scripts/verify-oci-layout-helper.sh
+          bash -n scripts/verify-provider-artifact-contracts.sh
           bash -n scripts/verify-publish-helper.sh
           bash -n scripts/verify-selinux-avc-gate.sh
           bash scripts/build.sh --help
@@ -85,6 +86,7 @@ jobs:
           bash scripts/verify-recipe.sh
           bash scripts/verify-build-helper.sh
           bash scripts/verify-oci-layout-helper.sh
+          bash scripts/verify-provider-artifact-contracts.sh
           bash scripts/verify-publish-helper.sh
           bash scripts/verify-selinux-avc-gate.sh
 

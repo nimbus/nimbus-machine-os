@@ -122,6 +122,7 @@ From `nimbus/machine-os`:
 ```bash
 bash scripts/verify-build-helper.sh
 bash scripts/verify-oci-layout-helper.sh
+bash scripts/verify-provider-artifact-contracts.sh
 bash scripts/verify-publish-helper.sh
 ```
 

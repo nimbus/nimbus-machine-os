@@ -35,7 +35,9 @@ The guest image contains:
   tmpfiles, baked units, virtiofs-delivered machine config, and the Nimbus
   guest config command. Ignition is not part of the normal bootc path.
 
-See [docs/architecture.md](docs/architecture.md) for the full guest contract.
+See [docs/architecture.md](docs/architecture.md) for the full guest contract and
+[docs/provider-artifacts.md](docs/provider-artifacts.md) for current and
+future provider artifact shapes.
 
 ## Published artifacts
 
@@ -47,7 +49,8 @@ See [docs/architecture.md](docs/architecture.md) for the full guest contract.
 | Build provenance | GitHub Attestations (via `actions/attest`) |
 
 Release assets and OCI annotations are part of the public contract. See
-[docs/artifact-contract.md](docs/artifact-contract.md) and
+[docs/artifact-contract.md](docs/artifact-contract.md),
+[docs/provider-artifacts.md](docs/provider-artifacts.md), and
 [docs/release-contract.md](docs/release-contract.md).
 
 ## Building locally
@@ -107,6 +110,7 @@ Fast deterministic checks:
 bash scripts/verify-recipe.sh
 bash scripts/verify-build-helper.sh
 bash scripts/verify-oci-layout-helper.sh
+bash scripts/verify-provider-artifact-contracts.sh
 bash scripts/verify-publish-helper.sh
 bash scripts/verify-selinux-avc-gate.sh
 ```

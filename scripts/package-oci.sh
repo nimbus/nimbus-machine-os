@@ -5,19 +5,20 @@ usage() {
   cat <<'EOF'
 usage: package-oci.sh [options]
 
-Wrap a Nimbus machine raw-disk artifact in the OCI image-layout shape that the
-macOS machine manager already consumes from registries.
+Wrap a Nimbus machine artifact in the OCI image-layout shape that provider
+implementations consume from registries.
 
 Options:
   --build-output-dir <path>    Build output directory containing summary.txt
   --summary-file <path>        Explicit build summary file to read
-  --raw-disk <path>            Explicit raw/raw.gz/raw.zst machine disk artifact
+  --artifact <path>            Explicit machine artifact (raw, rootfs tar, or vhdx)
+  --raw-disk <path>            Backward-compatible alias for --artifact
   --layout-dir <path>          Output OCI image-layout directory
   --image-reference <ref>      Destination image reference used to derive ref name
   --ref-name <name>            Explicit OCI layout ref name (defaults from image reference)
   --arch <arch>                OCI architecture (default: host architecture)
   --os <os>                    OCI operating system (default: linux)
-  --disk-type <type>           Provider disk artifact type (default: applehv)
+  --disk-type <type>           Provider artifact selector (default: applehv)
   --source-repository-url <u>  OCI source repository URL
   --source-revision <rev>      Source revision embedded in OCI metadata
   --attestation-repository <r> GitHub repo expected to carry build attestations
@@ -57,6 +58,13 @@ normalize_arch() {
 infer_layer_media_type() {
   case "$1" in
     *.raw.gz) printf 'application/vnd.nimbus.machine.disk.layer.v1.raw+gzip\n' ;;
+    *.tar.gz|*.tgz) printf 'application/vnd.nimbus.machine.rootfs.layer.v1.tar+gzip\n' ;;
+    *.tar.zst) printf 'application/vnd.nimbus.machine.rootfs.layer.v1.tar+zstd\n' ;;
+    *.tar) printf 'application/vnd.nimbus.machine.rootfs.layer.v1.tar\n' ;;
+    *.vhdx.zip) printf 'application/vnd.nimbus.machine.disk.layer.v1.vhdx+zip\n' ;;
+    *.vhdx.gz) printf 'application/vnd.nimbus.machine.disk.layer.v1.vhdx+gzip\n' ;;
+    *.vhdx.zst) printf 'application/vnd.nimbus.machine.disk.layer.v1.vhdx+zstd\n' ;;
+    *.vhdx) printf 'application/vnd.nimbus.machine.disk.layer.v1.vhdx\n' ;;
     *.raw.zst) printf 'application/vnd.nimbus.machine.disk.layer.v1.raw+zstd\n' ;;
     *.raw) printf 'application/vnd.nimbus.machine.disk.layer.v1.raw\n' ;;
     *) printf 'application/vnd.nimbus.machine.disk.layer.v1.blob\n' ;;
@@ -139,7 +147,7 @@ while [[ $# -gt 0 ]]; do
       summary_file="${2:-}"
       shift 2
       ;;
-    --raw-disk)
+    --artifact|--raw-disk)
       raw_disk_path="${2:-}"
       shift 2
       ;;
@@ -228,11 +236,11 @@ if [[ -n "${summary_file}" ]]; then
 fi
 
 if [[ -z "${raw_disk_path}" ]]; then
-  echo "a raw-disk artifact is required; pass --raw-disk or a summary file with raw_disk_path/compressed_raw_disk_path" >&2
+  echo "a machine artifact is required; pass --artifact, --raw-disk, or a summary file with raw_disk_path/compressed_raw_disk_path" >&2
   exit 64
 fi
 if [[ ! -f "${raw_disk_path}" ]]; then
-  echo "raw-disk artifact not found: ${raw_disk_path}" >&2
+  echo "machine artifact not found: ${raw_disk_path}" >&2
   exit 66
 fi
 
@@ -307,6 +315,7 @@ printf '{"imageLayoutVersion":"1.0.0"}\n' >"${layout_dir}/oci-layout"
 
 summary_output="${layout_dir}/summary.txt"
 cat >"${summary_output}" <<EOF
+artifact_path=${raw_disk_path}
 raw_disk_path=${raw_disk_path}
 image_reference=${image_reference:-<unspecified>}
 ref_name=${ref_name}
@@ -324,4 +333,4 @@ manifest_digest=${manifest_digest}
 layout_dir=${layout_dir}
 EOF
 
-printf 'packaged machine OCI layout at %s\n' "${layout_dir}"
+printf 'packaged machine artifact OCI layout at %s\n' "${layout_dir}"

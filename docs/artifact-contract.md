@@ -32,7 +32,8 @@ provider contracts should be explicit when they are promoted:
 These may reuse the same bootc-derived guest content where that remains true,
 but they are separate release artifacts with separate verification gates. Do
 not publish them as supported outputs until the host-side Windows provider can
-consume and prove them end to end.
+consume and prove them end to end. See `docs/provider-artifacts.md` for the
+provider matrix and promotion rule.
 
 ## Required Annotations
 
@@ -109,6 +110,7 @@ Fast local checks:
 
 ```bash
 bash scripts/verify-oci-layout-helper.sh
+bash scripts/verify-provider-artifact-contracts.sh
 bash scripts/verify-publish-helper.sh
 ```
 
