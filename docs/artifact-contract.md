@@ -1,10 +1,14 @@
 # Artifact Contract
 
-Nimbus publishes the machine image as a raw disk wrapped in an OCI image
-layout. This lets the macOS host use a registry as the VM image distribution
-channel while still selecting a concrete provider disk artifact.
+Nimbus currently publishes the macOS machine image as a raw disk wrapped in an
+OCI image layout. This lets the macOS host use a registry as the VM image
+distribution channel while still selecting a concrete provider disk artifact.
 
-## Required Shape
+Future Windows support should add provider-specific artifact families instead
+of reusing the macOS disk as-is. WSL2 needs a rootfs-style import artifact and
+shell bootstrap; a future Hyper-V provider would need a VHDX-style artifact.
+
+## Current macOS Shape
 
 The macOS host expects:
 
@@ -15,6 +19,20 @@ The macOS host expects:
 - disk layer title ending in `.raw`, `.raw.gz`, or `.raw.zst`
 
 `scripts/package-oci.sh` owns this shape.
+
+## Future Windows Shapes
+
+The current `disktype=applehv` raw disk is not a Windows artifact. The Windows
+provider contracts should be explicit when they are promoted:
+
+- WSL2: rootfs Tar artifact for `wsl --import`, followed by provider-specific
+  shell bootstrap and nested systemd setup.
+- Hyper-V: VHDX-style artifact if the deferred Hyper-V provider is promoted.
+
+These may reuse the same bootc-derived guest content where that remains true,
+but they are separate release artifacts with separate verification gates. Do
+not publish them as supported outputs until the host-side Windows provider can
+consume and prove them end to end.
 
 ## Required Annotations
 
@@ -70,11 +88,11 @@ the facts needed for provenance and troubleshooting, including:
 
 The artifact contract intentionally resembles the Podman machine image
 selection boundary. That does not mean this repository should keep Podman's
-FCOS build system or branch structure.
+FCOS, WSL, COSA, or branch structure.
 
 The compatibility target is:
 
-- a provider-selectable raw disk artifact
+- provider-selectable machine artifacts
 - a guest with Podman-compatible container behavior
 - enough OCI metadata for host-side selection and release evidence
 

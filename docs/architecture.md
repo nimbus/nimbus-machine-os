@@ -1,8 +1,10 @@
 # Machine-OS Architecture
 
-`nimbus/machine-os` builds the Linux guest appliance used by Nimbus on macOS.
+`nimbus/machine-os` builds the Linux guest appliance currently used by Nimbus on macOS.
 It is a direct Fedora bootc image with Nimbus guest services and container
-tooling pre-installed.
+tooling pre-installed. Future Windows support should add provider-specific
+artifacts from this appliance lineage instead of reusing the macOS raw disk
+as-is.
 
 ## Design Position
 
@@ -31,6 +33,29 @@ digest-pinned Fedora bootc base
 ```
 
 The checked-in production recipe lives under `image/`. All workflow, script, and cross-repo verifier references should move with that directory if it is ever renamed again.
+
+`image/` is singular on purpose: it names the production bootc appliance recipe,
+not the number of release artifacts. If future Windows support can reuse the
+same guest content, add provider-specific artifact packaging around the recipe
+instead of renaming the tree back to `images/`. Introduce additional recipe
+directories only if a Windows provider truly needs different guest content.
+
+## Provider Artifact Model
+
+The supported artifact today is macOS AppleHV/LibKrun: a raw disk wrapped in
+OCI and selected with `disktype=applehv`.
+
+The reviewed Windows plan reserves two different future shapes:
+
+- WSL2: a rootfs Tar artifact imported with `wsl --import`, then configured by
+  WSL-specific shell bootstrap and nested systemd setup.
+- Hyper-V: a VHDX-style artifact, deferred until Hyper-V is promoted as a
+  supported provider.
+
+The current AppleHV raw disk should not be described as Windows-ready. A
+Windows artifact becomes supported only after the Windows host provider can
+consume it and prove machine lifecycle, API forwarding, networking, and service
+readiness end to end.
 
 ## Guest Responsibilities
 
