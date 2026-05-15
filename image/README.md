@@ -25,7 +25,7 @@ it does not build the guest image locally during normal development.
 
 ## Outputs
 
-`images/build.sh` produces:
+`image/build.sh` produces:
 
 - `nimbus-machine-os.ociarchive`
 - `nimbus-machine-os.raw.gz`
@@ -63,7 +63,7 @@ sudo bash scripts/build.sh \
 Direct recipe entrypoint:
 
 ```bash
-sudo bash images/build.sh \
+sudo bash image/build.sh \
   --nimbus-binary /absolute/path/to/nimbus-linux-arm64 \
   --nimbus-version vX.Y.Z \
   --source-revision "$(git rev-parse HEAD)" \
@@ -110,7 +110,7 @@ instead of inferred from repo naming alone.
 
 The owning workflow is:
 
-- `.github/workflows/build.yml`
+- `.github/workflows/ci.yml`
 
 Release shape:
 
@@ -132,7 +132,7 @@ Repo-owned verification entrypoints:
 ```bash
 bash scripts/verify-recipe.sh
 bash scripts/verify-build-helper.sh
-bash scripts/verify-fedora-bootc-proof.sh
 bash scripts/verify-oci-layout-helper.sh
 bash scripts/verify-publish-helper.sh
+bash scripts/verify-selinux-avc-gate.sh
 ```

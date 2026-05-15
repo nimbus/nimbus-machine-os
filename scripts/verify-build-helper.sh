@@ -16,7 +16,7 @@ write_noop_executable "${temp_dir}/nimbus"
 write_executable_stub "${fake_bin}/bash" <<'EOF'
 #!/bin/bash
 set -euo pipefail
-if [[ "${1:-}" == *"images/build.sh" ]]; then
+if [[ "${1:-}" == *"image/build.sh" ]]; then
   shift
   printf '%s\n' "$*" >>"${TMPDIR}/recipe.log"
   exit 0

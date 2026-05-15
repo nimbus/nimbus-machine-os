@@ -116,7 +116,7 @@ fi
 require_command bash
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-recipe_script="${repo_root}/images/build.sh"
+recipe_script="${repo_root}/image/build.sh"
 
 if [[ ! -f "${recipe_script}" ]]; then
   echo "image recipe entrypoint not found: ${recipe_script}" >&2

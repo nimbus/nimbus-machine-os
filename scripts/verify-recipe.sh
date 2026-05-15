@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-recipe_dir="${repo_root}/images"
+recipe_dir="${repo_root}/image"
 source "${repo_root}/scripts/test-helpers.sh"
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "${temp_dir}"' EXIT

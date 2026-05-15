@@ -1,6 +1,6 @@
-name: Build machine-os
+name: CI machine-os
 run-name: >-
-  Build machine-os${{
+  CI machine-os${{
     inputs.nimbus_version != '' && format(' ({0})', inputs.nimbus_version)
     || startsWith(github.ref, 'refs/tags/') && format(' ({0})', github.ref_name)
     || ''
@@ -9,20 +9,26 @@ run-name: >-
 on:
   pull_request:
     paths:
-      - "images/**"
-      - "proofs/**"
+      - "image/**"
       - "scripts/**"
-      - ".github/workflows/build.yml"
+      - "docs/**"
+      - "AGENTS.md"
+      - "README.md"
+      - "SECURITY.md"
+      - ".github/workflows/ci.yml"
   push:
     branches:
       - main
     tags:
       - "v*"
     paths:
-      - "images/**"
-      - "proofs/**"
+      - "image/**"
       - "scripts/**"
-      - ".github/workflows/build.yml"
+      - "docs/**"
+      - "AGENTS.md"
+      - "README.md"
+      - "SECURITY.md"
+      - ".github/workflows/ci.yml"
   workflow_dispatch:
     inputs:
       nimbus_version:
@@ -65,7 +71,6 @@ jobs:
           bash -n scripts/write-sbom.sh
           bash -n scripts/verify-recipe.sh
           bash -n scripts/verify-build-helper.sh
-          bash -n scripts/verify-fedora-bootc-proof.sh
           bash -n scripts/verify-oci-layout-helper.sh
           bash -n scripts/verify-publish-helper.sh
           bash -n scripts/verify-selinux-avc-gate.sh
@@ -79,7 +84,6 @@ jobs:
         run: |
           bash scripts/verify-recipe.sh
           bash scripts/verify-build-helper.sh
-          bash scripts/verify-fedora-bootc-proof.sh
           bash scripts/verify-oci-layout-helper.sh
           bash scripts/verify-publish-helper.sh
           bash scripts/verify-selinux-avc-gate.sh
@@ -169,7 +173,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ runner.temp }}/image-cache
-          key: base-image-arm64-${{ hashFiles('images/Containerfile', 'images/build-common.sh', 'images/build.sh') }}
+          key: base-image-arm64-${{ hashFiles('image/Containerfile', 'image/build-common.sh', 'image/build.sh') }}
           restore-keys: |
             base-image-arm64-
 

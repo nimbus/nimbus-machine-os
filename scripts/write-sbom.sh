@@ -9,7 +9,7 @@ Write a deterministic CycloneDX JSON SBOM for a Nimbus machine-os build from
 the build and OCI packaging summaries.
 
 Options:
-  --build-summary <path>  Build summary produced by images/build.sh
+  --build-summary <path>  Build summary produced by image/build.sh
   --oci-summary <path>    Optional OCI layout summary produced by package-oci.sh
   --output <path>         Output SBOM path
   -h, --help              Show this help
